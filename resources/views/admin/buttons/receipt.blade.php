@@ -1,0 +1,1 @@
+<a class="btn btn-sm btn-link" href="{{ route('workspace.receipt', $entry->id) }}">Receipt</a>

@@ -1,0 +1,21 @@
+{
+    "agents": [
+        "codex"
+    ],
+    "cloud": false,
+    "guidelines": true,
+    "mcp": true,
+    "nightwatch": false,
+    "packages": [
+        "backpack/crud"
+    ],
+    "sail": false,
+    "skills": [
+        "infer-conventions",
+        "laravel-best-practices",
+        "testing-best-practices",
+        "livewire-development",
+        "tailwindcss-development",
+        "backpack-crud"
+    ]
+}

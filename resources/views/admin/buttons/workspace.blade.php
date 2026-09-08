@@ -1,0 +1,1 @@
+<a class="btn btn-sm btn-link" href="{{ route('workspace.show', $entry->id) }}"><i class="la la-store"></i> Workspace</a>

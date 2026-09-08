@@ -1,0 +1,1 @@
+<form class="d-inline" method="post" action="{{ route('workspace.duplicate', $entry->id) }}">@csrf<button class="btn btn-sm btn-link" type="submit"><i class="la la-copy"></i> Duplicate</button></form>

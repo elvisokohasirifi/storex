@@ -1,28 +1,18 @@
-@extends(backpack_view('blank'))
-@section('header')
-<section class="container-fluid"><div class="d-flex flex-wrap justify-content-between align-items-center gap-3"><div><h1>{{ $shop->name }}</h1><p class="text-muted">{{ $shop->location }} · {{ ucfirst($shop->status) }}</p></div>
-@if($shop->status === 'approved')<a href="{{ route('shops.show', $shop->slug) }}" class="btn btn-outline-primary">Open storefront ↗</a>@endif</div></section>
-@endsection
-@section('content')
-@include('admin.messages')
-<div class="row"><div class="col-md-6"><div class="card"><div class="card-body"><small class="text-muted">COMPLETED SALES</small><h2 class="mt-2">{{ $shop->currency }} {{ number_format($salesTotal / 100, 2) }}</h2></div></div></div><div class="col-md-6"><div class="card"><div class="card-body"><small class="text-muted">ONLINE PAYMENTS</small><h2 class="mt-2">{{ $shop->paystack_secret_key ? 'Connected to Paystack' : 'Not connected' }}</h2></div></div></div></div>
-<div class="card"><div class="card-header"><h3 class="card-title">Inventory & point of sale</h3></div><div class="card-body">
-<form method="get" class="d-flex gap-2 mb-3"><input class="form-control" name="q" value="{{ $search }}" placeholder="Search product name or scan barcode" aria-label="Search products"><button class="btn btn-outline-primary">Search</button></form>
-@if($canSell)<form method="post" action="{{ route('workspace.sale', $shop) }}">@csrf @endif
-<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Product</th><th>Barcode</th><th>Price</th><th>Stock</th><th>Status</th>@if($canSell)<th>Sell quantity</th>@endif</tr></thead><tbody>
-@forelse($products as $product)<tr><td><a href="{{ route('product.show', $product) }}">{{ $product->name }}</a></td><td>{{ $product->barcode ?: '—' }}</td><td>{{ $shop->currency }} {{ $product->selling_price }}</td><td>{{ $product->quantity ?? 'Untracked' }}</td><td>{{ ucfirst($product->status) }}</td>@if($canSell)<td>@if($product->status === 'approved')<input style="max-width:100px" class="form-control" type="number" min="0" max="10000" value="0" name="items[{{ $product->id }}]" aria-label="Quantity for {{ $product->name }}">@endif</td>@endif</tr>
-@empty<tr><td colspan="6">No products yet. Add a product or use bulk entry below.</td></tr>@endforelse</tbody></table></div>{{ $products->links() }}
-@if($canSell)
-<div class="row mt-3"><div class="col-md-4"><label class="form-label">Customer name<input class="form-control" name="customer_name" required maxlength="150" value="{{ old('customer_name', 'Walk-in customer') }}"></label></div><div class="col-md-4"><label class="form-label">Customer email<input class="form-control" type="email" name="customer_email" required value="{{ old('customer_email') }}"></label></div><div class="col-md-4"><label class="form-label">Phone (optional)<input class="form-control" name="customer_phone" value="{{ old('customer_phone') }}"></label></div></div>
-<button class="btn btn-primary mt-2" type="submit">Record cash sale & issue receipt</button><p class="text-muted mt-2">Record a cash sale only after receiving payment. Stock is checked on submission.</p></form>@endif
+@extends('admin.shop-page')
+@section('page_title', 'Shop overview')
+@section('shop_content')
+<div class="row g-4 mb-4">
+    @foreach([
+        'sales' => ['Completed sales', '#1d4ed8'],
+        'products' => ['Products set up', '#047857'],
+        'out_of_stock' => ['Out of stock', '#be123c'],
+        'users' => ['Shop users', '#7e22ce'],
+        'payments_to_review' => ['Payments needing review', '#0e7490'],
+    ] as $key => [$label, $color])
+        <div class="col-12 col-sm-6 col-xl-4"><div class="card h-100 text-white" style="background-color: {{ $color }}"><div class="card-body"><p class="mb-2">{{ $label }}</p><div class="h1 text-white mb-0">{{ number_format($stats[$key]) }}</div></div></div></div>
+    @endforeach
+</div>
+<div class="card mb-4"><div class="card-body"><h3>Sales today</h3><p class="text-muted">Sales completed today (UTC). Pending, cancelled, and payments needing review are excluded.</p>
+    @forelse($salesByCurrency as $sales)<p class="h2">{{ $sales->currency }} {{ number_format($sales->revenue / 100, 2) }}</p>@empty<p class="text-muted mb-0">No completed sales today.</p>@endforelse
 </div></div>
-@if(!backpack_user()->is_platform_admin && $shop->status !== 'frozen')
-<div class="card"><div class="card-body"><h3>Bulk product entry</h3><p>Paste CSV with the header below. Up to 100 products per import. Leave cost, stock, barcode, or SKU blank when not needed. All products start pending approval.</p><a class="btn btn-outline-primary mb-3" href="{{ route('product.create') }}">Add a single product</a>
-<form method="post" action="{{ route('workspace.bulk', $shop) }}">@csrf<label class="form-label w-100">CSV products<textarea class="form-control font-monospace" name="csv" rows="7" required placeholder="name,description,cost_price,selling_price,quantity,barcode,sku&#10;Fresh bread,Made daily,8.00,12.00,20,123456,BREAD-01">{{ old('csv') }}</textarea></label><p class="small">Header: <code>name,description,cost_price,selling_price,quantity,barcode,sku</code>. Quote descriptions containing commas or new lines. Add images after import.</p><button class="btn btn-primary">Create products</button></form></div></div>@endif
-<div class="row"><div class="col-lg-6"><div class="card"><div class="card-body"><h3>Team</h3><p>Owner: {{ $shop->owner->name }}. Admins manage settings and staff; managers manage products and sales.</p>
-@foreach($members as $member)<div class="d-flex justify-content-between py-2 border-bottom"><span>{{ $member->user->name }} · {{ $member->role }}</span>@if($canManage)<form method="post" action="{{ route('workspace.member.remove', [$shop, $member]) }}">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger">Remove access</button></form>@endif</div>@endforeach
-@if($canManage)<form class="mt-3" method="post" action="{{ route('workspace.member', $shop) }}">@csrf<label class="form-label w-100">Name<input class="form-control" name="name" required></label><label class="form-label w-100">Email<input class="form-control" name="email" type="email" required></label><label class="form-label w-100">Initial password (new accounts only)<input class="form-control" name="password" type="password" minlength="12" autocomplete="new-password"></label><label class="form-label w-100">Role<select class="form-select" name="role"><option value="manager">Store manager</option><option value="admin">Shop admin</option></select></label><button class="btn btn-primary">Add or update member</button></form>@endif
-</div></div></div>
-@if($canManage)<div class="col-lg-6"><div class="card"><div class="card-body"><h3>Paystack settings</h3><p>Payments go to your Paystack account. Leave key fields blank to keep existing credentials. Keys are never displayed.</p><form method="post" action="{{ route('workspace.credentials', $shop) }}">@csrf<label class="form-label w-100">Public key<input class="form-control" name="public_key" type="password" autocomplete="new-password" placeholder="pk_test_… or pk_live_…"></label><label class="form-label w-100">Secret key<input class="form-control" name="secret_key" type="password" autocomplete="new-password" placeholder="sk_test_… or sk_live_…"></label><label class="form-label w-100">Currency<select class="form-select" name="currency">@foreach(['GHS','NGN','ZAR','KES','XOF','EGP'] as $currency)<option @selected($shop->currency === $currency)>{{ $currency }}</option>@endforeach</select></label><p class="small">Use a currency enabled on your Paystack account. Set this webhook URL in your Paystack dashboard:</p><code class="d-block text-break mb-3">{{ route('checkout.webhook', $shop) }}</code><button class="btn btn-primary">Save payment settings</button></form></div></div></div>@endif</div>
-<div class="card"><div class="card-body"><h3>Recent sales & payments</h3><div class="table-responsive"><table class="table"><thead><tr><th>Customer</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>@forelse($orders as $order)<tr><td>{{ $order->customer_name }}</td><td>{{ $order->currency }} {{ number_format($order->total / 100, 2) }}</td><td>{{ str_replace('_', ' ', ucfirst($order->status)) }} @if($order->status === 'paid_review')<p class="text-danger">Payment received; stock was not deducted. Contact the customer to arrange fulfilment or refund through Paystack.</p>@endif</td><td><a href="{{ route('workspace.receipt', $order) }}">Receipt</a></td></tr>@empty<tr><td colspan="4">Your sales will appear here.</td></tr>@endforelse</tbody></table></div></div></div>
 @endsection

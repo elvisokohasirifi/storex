@@ -21,7 +21,7 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['payment_secret' => 'encrypted', 'total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
+        return ['payment_secret' => 'encrypted', 'subtotal' => 'integer', 'discount_total' => 'integer', 'total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Shop, $this> */

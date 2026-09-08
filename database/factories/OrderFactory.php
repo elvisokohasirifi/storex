@@ -12,6 +12,6 @@ class OrderFactory extends Factory
 {
     public function definition(): array
     {
-        return ['shop_id' => Shop::factory(), 'reference' => (string) Str::uuid(), 'customer_name' => 'Customer', 'customer_email' => 'customer@example.com', 'currency' => 'GHS', 'total' => 1250, 'channel' => 'paystack', 'status' => 'pending', 'expires_at' => now()->addMinutes(15)];
+        return ['shop_id' => Shop::factory(), 'reference' => (string) Str::uuid(), 'customer_name' => 'Customer', 'customer_email' => 'customer@example.com', 'currency' => 'GHS', 'subtotal' => 1250, 'discount_total' => 0, 'total' => 1250, 'channel' => 'paystack', 'status' => 'pending', 'expires_at' => now()->addMinutes(15)];
     }
 }

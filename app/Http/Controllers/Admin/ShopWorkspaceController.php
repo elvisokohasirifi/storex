@@ -34,6 +34,20 @@ class ShopWorkspaceController extends Controller
 
     public function index(): View
     {
+        if (backpack_user()->is_platform_admin) {
+            $stats = [
+                'shops' => Shop::count(),
+                'pending_shops' => Shop::where('status', 'pending')->count(),
+                'users' => User::count(),
+                'products' => Product::count(),
+            ];
+            $shops = Shop::where('status', 'pending')
+                ->withCount('products')
+                ->orderBy('name')->orderBy('id')->paginate(20);
+
+            return view('admin.overview', compact('stats', 'shops'));
+        }
+
         $shops = backpack_user()->accessibleShops()->withCount('products')->orderBy('name')->paginate(20);
 
         return view('admin.shops', compact('shops'));
@@ -42,20 +56,69 @@ class ShopWorkspaceController extends Controller
     public function show(Request $request, string $shop): View
     {
         $shop = $this->shop($shop);
-        $search = mb_substr((string) $request->query('q', ''), 0, 100);
-        $products = $shop->products()->when($search, fn ($query) => $query->where(fn ($query) => $query->where('name', 'like', '%'.$search.'%')->orWhere('barcode', $search)))->orderBy('name')->paginate(30)->withQueryString();
-        $members = $shop->members()->with('user')->get();
+        $shop->load('owner');
         if (backpack_user()->is_platform_admin) {
-            $shop->load('owner');
+            $search = mb_substr((string) $request->query('q', ''), 0, 100);
+            $products = $shop->products()->when($search, fn ($query) => $query->where(fn ($query) => $query->where('name', 'like', '%'.$search.'%')->orWhere('barcode', $search)))->orderBy('name')->paginate(30)->withQueryString();
+            $members = $shop->members()->with('user')->get();
 
             return view('admin.shop-moderation', compact('shop', 'products', 'members', 'search'));
         }
         $canManage = backpack_user()->manages($shop, true) && $shop->status !== 'frozen';
-        $canSell = backpack_user()->manages($shop) && $shop->status === 'approved';
-        $salesTotal = $shop->orders()->where('status', 'paid')->sum('total');
-        $orders = $shop->orders()->latest()->limit(10)->get();
+        $stats = [
+            'sales' => $shop->orders()->where('status', 'paid')->count(),
+            'products' => $shop->products()->count(),
+            'out_of_stock' => $shop->products()->where('quantity', 0)->count(),
+            'users' => $shop->members()->count() + 1,
+            'payments_to_review' => $shop->orders()->where('status', 'paid_review')->count(),
+        ];
+        $today = today();
+        $salesByCurrency = $shop->orders()->where('status', 'paid')
+            ->where('paid_at', '>=', $today)->where('paid_at', '<', $today->copy()->addDay())->select('currency')
+            ->selectRaw('SUM(total) as revenue')->groupBy('currency')->orderBy('currency')->toBase()->get();
 
-        return view('admin.workspace', compact('shop', 'products', 'members', 'canManage', 'canSell', 'salesTotal', 'orders', 'search'));
+        return view('admin.workspace', compact('shop', 'canManage', 'stats', 'salesByCurrency'));
+    }
+
+    public function payments(string $shop): View
+    {
+        $shop = $this->shop($shop, true, true);
+        $canManage = true;
+
+        return view('admin.shop-payments', compact('shop', 'canManage'));
+    }
+
+    public function users(string $shop): View
+    {
+        $shop = $this->shop($shop, true, true);
+        $shop->load('owner');
+        $members = $shop->members()->with('user')->get();
+        $canManage = true;
+
+        return view('admin.shop-users', compact('shop', 'members', 'canManage'));
+    }
+
+    public function till(Request $request, string $shop, SalesService $sales): View
+    {
+        abort_if(backpack_user()->is_platform_admin, 403);
+        $shop = $this->shop($shop);
+        $canManage = backpack_user()->manages($shop, true) && $shop->status !== 'frozen';
+        $canSell = $shop->status === 'approved';
+        $search = mb_substr((string) $request->query('q', ''), 0, 100);
+        $products = $shop->products()
+            ->when($search, fn ($query) => $query->where(fn ($query) => $query->where('name', 'like', '%'.$search.'%')->orWhere('barcode', $search)))
+            ->orderBy('name')->paginate(30)->withQueryString();
+        $discounts = $sales->activeDiscounts($shop);
+        $productPrices = $products->getCollection()->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
+
+        return view('admin.shop-till', compact('shop', 'canManage', 'canSell', 'search', 'products', 'productPrices'));
+    }
+
+    public function bulkProducts(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['shop_id' => ['required', 'uuid']]);
+
+        return $this->bulk($request, $data['shop_id']);
     }
 
     public function credentials(Request $request, string $shop): RedirectResponse
@@ -118,11 +181,10 @@ class ShopWorkspaceController extends Controller
     {
         $product = Product::whereIn('shop_id', backpack_user()->accessibleShops()->select('shops.id'))->findOrFail($product);
         $this->shop($product->shop_id, true);
-        abort_if($product->status === 'frozen', 403);
         $copy = $product->replicate(['barcode', 'sku', 'image']);
         $copy->name = Str::limit($product->name, 140, '').' (copy)';
         $copy->quantity = $product->quantity === null ? null : 0;
-        $copy->status = 'pending';
+        $copy->status = 'approved';
         $sourcePath = Str::start($product->image ?? '', 'products/');
         if ($product->image && Storage::disk('public')->exists($sourcePath)) {
             $path = 'products/'.Str::uuid().'.'.pathinfo($sourcePath, PATHINFO_EXTENSION);
@@ -131,22 +193,27 @@ class ShopWorkspaceController extends Controller
         }
         $copy->save();
 
-        return redirect()->route('product.edit', $copy->id)->with('success', 'Product duplicated. Set its barcode and stock before approval.');
+        return redirect()->route('product.edit', $copy->id)->with('success', 'Product duplicated. Set its barcode and stock before selling.');
     }
 
     public function bulk(Request $request, string $shop): RedirectResponse
     {
         $shop = $this->shop($shop, true);
-        $data = $request->validate(['csv' => ['required', 'string', 'max:200000']]);
+        $data = $request->validate([
+            'csv' => ['nullable', 'required_without:csv_file', 'string', 'max:200000'],
+            'csv_file' => ['nullable', 'required_without:csv', 'file', 'mimes:csv,txt', 'max:200'],
+        ]);
         $stream = fopen('php://temp', 'r+');
         if ($stream === false) {
             throw new \RuntimeException('Could not open CSV input.');
         }
-        fwrite($stream, $data['csv']);
+        $csv = $data['csv'] ?? $request->file('csv_file')?->getContent() ?? '';
+        fwrite($stream, $csv);
         rewind($stream);
         $header = fgetcsv($stream, escape: '');
-        $expected = ['name', 'description', 'cost_price', 'selling_price', 'quantity', 'barcode', 'sku'];
-        if ($header !== $expected) {
+        $currentHeader = ['name', 'description', 'cost_price', 'selling_price', 'sale_price', 'quantity', 'barcode', 'sku'];
+        $legacyHeader = ['name', 'description', 'cost_price', 'selling_price', 'quantity', 'barcode', 'sku'];
+        if ($header !== $currentHeader && $header !== $legacyHeader) {
             fclose($stream);
             throw ValidationException::withMessages(['csv' => 'Use the exact column header shown in the form.']);
         }
@@ -157,9 +224,11 @@ class ShopWorkspaceController extends Controller
             }
             if (count($row) !== count($header) || count($rows) >= 100) {
                 fclose($stream);
-                throw ValidationException::withMessages(['csv' => 'Each row needs seven columns; import at most 100 products at a time.']);
+                throw ValidationException::withMessages(['csv' => 'Each row needs the same columns as the header; import at most 100 products at a time.']);
             }
-            $rows[] = array_combine($header, array_map(fn ($value) => $value === '' ? null : $value, $row));
+            $productRow = array_combine($header, array_map(fn ($value) => $value === '' ? null : $value, $row));
+            $productRow['sale_price'] ??= null;
+            $rows[] = $productRow;
         }
         fclose($stream);
         if (! $rows) {
@@ -167,6 +236,7 @@ class ShopWorkspaceController extends Controller
         }
         DB::transaction(function () use ($shop, $rows) {
             foreach ($rows as $index => $row) {
+                $row['visibility'] = 'published';
                 $validator = Validator::make($row, ProductRequest::productRules($shop->id));
                 if ($validator->fails()) {
                     throw ValidationException::withMessages(['csv' => 'Row '.($index + 2).': '.$validator->errors()->first()]);
@@ -175,7 +245,7 @@ class ShopWorkspaceController extends Controller
             }
         });
 
-        return back()->with('success', count($rows).' products created and submitted for approval.');
+        return back()->with('success', count($rows).' products created.');
     }
 
     public function sale(Request $request, string $shop, SalesService $sales): RedirectResponse

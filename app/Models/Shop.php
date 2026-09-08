@@ -58,6 +58,24 @@ class Shop extends Model
         return $this->hasMany(Product::class);
     }
 
+    /** @return HasMany<ProductCategory, $this> */
+    public function categories(): HasMany
+    {
+        return $this->hasMany(ProductCategory::class);
+    }
+
+    /** @return HasMany<Brand, $this> */
+    public function brands(): HasMany
+    {
+        return $this->hasMany(Brand::class);
+    }
+
+    /** @return HasMany<ShopDiscount, $this> */
+    public function discounts(): HasMany
+    {
+        return $this->hasMany(ShopDiscount::class);
+    }
+
     /** @return HasMany<Order, $this> */
     public function orders(): HasMany
     {

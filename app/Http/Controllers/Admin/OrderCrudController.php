@@ -24,7 +24,7 @@ class OrderCrudController extends CrudController
 
     protected function setupListOperation(): void
     {
-        foreach (['reference', 'customer_name', 'customer_email', 'currency', 'channel', 'status', 'created_at'] as $name) {
+        foreach (['reference', 'customer_name', 'customer_phone', 'customer_email', 'currency', 'channel', 'status', 'created_at'] as $name) {
             CRUD::column($name)->label(ucwords(str_replace('_', ' ', $name)))->type('text');
         }
         CRUD::column('total')->label('Total')->type('closure');

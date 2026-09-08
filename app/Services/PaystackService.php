@@ -10,6 +10,9 @@ class PaystackService
 {
     public function initialize(Order $order): string
     {
+        if (! $order->customer_email) {
+            throw ValidationException::withMessages(['customer_email' => 'Paystack requires an email address for online payments.']);
+        }
         $response = Http::withToken($order->payment_secret)->acceptJson()->connectTimeout(5)->timeout(20)
             ->post('https://api.paystack.co/transaction/initialize', [
                 'email' => $order->customer_email, 'amount' => $order->total, 'currency' => $order->currency,

@@ -21,7 +21,9 @@ class CheckoutController extends Controller
         if (! $shop->paystack_secret_key) {
             throw ValidationException::withMessages(['payment' => 'This shop has not enabled online payment yet.']);
         }
-        $data = $request->validate(self::rules());
+        $rules = self::rules();
+        $rules['customer_email'] = ['required', 'email', 'max:255'];
+        $data = $request->validate($rules);
         $items = array_filter($data['items'], fn ($quantity) => $quantity > 0);
         $order = $sales->create($shop, $data, $items);
         try {
@@ -36,8 +38,8 @@ class CheckoutController extends Controller
     public static function rules(): array
     {
         return [
-            'customer_name' => ['required', 'string', 'max:150'], 'customer_email' => ['required', 'email', 'max:255'],
-            'customer_phone' => ['nullable', 'string', 'max:50'], 'delivery_address' => ['nullable', 'string', 'max:2000'],
+            'customer_name' => ['required', 'string', 'max:150'], 'customer_email' => ['nullable', 'email', 'max:255'],
+            'customer_phone' => ['required', 'string', 'max:50', 'regex:/^\+?[0-9][0-9\s().-]{5,48}[0-9]$/'], 'delivery_address' => ['nullable', 'string', 'max:2000'],
             'items' => ['required', 'array', 'min:1', 'max:100'], 'items.*' => ['required', 'integer', 'min:0', 'max:10000'],
         ];
     }

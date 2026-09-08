@@ -328,5 +328,11 @@
         "asset_path": "C:\\Users\\GCI MEDIA\\Documents\\storex\\backpack/crud/fields/upload-field.js",
         "asset_disk_path": "basset/backpack/crud/fields/upload-field-79a9ccc3.js",
         "asset_attributes": []
+    },
+    "backpack/crud/fields/checkbox-field.js": {
+        "asset_name": "backpack/crud/fields/checkbox-field.js",
+        "asset_path": "C:\\Users\\GCI MEDIA\\Documents\\storex\\backpack/crud/fields/checkbox-field.js",
+        "asset_disk_path": "basset/backpack/crud/fields/checkbox-field-2dcfdd58.js",
+        "asset_attributes": []
     }
 }

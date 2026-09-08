@@ -10,14 +10,22 @@ use Backpack\CRUD\app\Http\Controllers\Operations\ListOperation;
 use Backpack\CRUD\app\Http\Controllers\Operations\ShowOperation;
 use Backpack\CRUD\app\Http\Controllers\Operations\UpdateOperation;
 use Backpack\CRUD\app\Library\CrudPanel\CrudPanelFacade as CRUD;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 
 class ShopCrudController extends CrudController
 {
     use CreateOperation;
     use ListOperation;
-    use ShowOperation;
+    use ShowOperation { show as protected showShopDetails; }
     use UpdateOperation;
+
+    public function show(string $id): RedirectResponse
+    {
+        $shop = backpack_user()->accessibleShops()->whereKey($id)->firstOrFail();
+
+        return redirect()->route('workspace.show', $shop);
+    }
 
     public function setup(): void
     {
@@ -40,7 +48,6 @@ class ShopCrudController extends CrudController
         foreach (['name', 'slug', 'location', 'email', 'status'] as $name) {
             CRUD::column($name)->label(ucfirst($name))->type('text');
         }
-        CRUD::button('workspace')->stack('line')->view('admin.buttons.workspace');
     }
 
     protected function setupShowOperation(): void

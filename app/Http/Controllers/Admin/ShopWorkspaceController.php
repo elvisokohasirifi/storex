@@ -94,6 +94,7 @@ class ShopWorkspaceController extends Controller
         $products = $shop->products()->orderBy('name')->get();
         $suppliers = $shop->suppliers()->orderBy('name')->get();
         $purchaseOrders = $shop->purchaseOrders()->with('supplier', 'items.product')->latest()->limit(20)->get();
+        $pendingManualOrders = $shop->orders()->with('items')->where('channel', 'manual')->where('status', 'pending')->latest()->limit(20)->get();
         $customers = $shop->customers()->withCount('orders')->orderBy('name')->limit(50)->get();
         $shifts = $shop->tillShifts()->with('user')->latest('opened_at')->limit(20)->get();
         $openShift = $shop->tillShifts()->where('user_id', backpack_user()->id)->where('status', 'open')->latest('opened_at')->first();
@@ -110,7 +111,7 @@ class ShopWorkspaceController extends Controller
         ];
         $canManage = true;
 
-        return view('admin.shop-operations', compact('shop', 'products', 'suppliers', 'purchaseOrders', 'customers', 'shifts', 'openShift', 'transferShops', 'expiringBatches', 'summary', 'canManage'));
+        return view('admin.shop-operations', compact('shop', 'products', 'suppliers', 'purchaseOrders', 'pendingManualOrders', 'customers', 'shifts', 'openShift', 'transferShops', 'expiringBatches', 'summary', 'canManage'));
     }
 
     public function variant(Request $request, string $shop): RedirectResponse
@@ -207,9 +208,10 @@ class ShopWorkspaceController extends Controller
     public function receivePurchaseOrder(string $shop, string $purchaseOrder): RedirectResponse
     {
         $shop = $this->inventoryWriteShop($shop);
-        $purchaseOrder = $shop->purchaseOrders()->with('items')->whereKey($purchaseOrder)->firstOrFail();
-        abort_if($purchaseOrder->status === 'received', 422);
         DB::transaction(function () use ($shop, $purchaseOrder): void {
+            $purchaseOrder = $shop->purchaseOrders()->whereKey($purchaseOrder)->lockForUpdate()->firstOrFail();
+            $purchaseOrder->load('items');
+            abort_if($purchaseOrder->status === 'received', 422);
             foreach ($purchaseOrder->items as $item) {
                 $product = $shop->products()->whereKey($item->product_id)->lockForUpdate()->firstOrFail();
                 $product->increment('quantity', $item->quantity);
@@ -240,6 +242,19 @@ class ShopWorkspaceController extends Controller
         }, 3);
 
         return back()->with('success', 'Purchase order received into stock.');
+    }
+
+    public function confirmManualSale(string $shop, Order $order, SalesService $sales): RedirectResponse
+    {
+        $shop = $this->shop($shop, true);
+        abort_unless($order->shop_id === $shop->id, 404);
+        $order = $sales->confirmManual($order, backpack_user());
+
+        if ($order->status === 'paid_review') {
+            return back()->with('warning', 'Payment recorded, but stock could not be fulfilled. Review this sale before handing over items.');
+        }
+
+        return back()->with('success', 'Manual payment confirmed and stock updated.');
     }
 
     public function openShift(Request $request, string $shop): RedirectResponse

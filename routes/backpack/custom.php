@@ -28,6 +28,7 @@ Route::group([
     Route::post('workspace/{shop}/shifts/{shift}/close', [ShopWorkspaceController::class, 'closeShift'])->name('workspace.shift.close');
     Route::post('workspace/{shop}/orders/{order}/cancel', [ShopWorkspaceController::class, 'cancelSale'])->name('workspace.sale.cancel');
     Route::post('workspace/{shop}/orders/{order}/refund', [ShopWorkspaceController::class, 'refundSale'])->name('workspace.sale.refund');
+    Route::post('workspace/{shop}/orders/{order}/confirm-manual', [ShopWorkspaceController::class, 'confirmManualSale'])->name('workspace.sale.confirm-manual');
     Route::get('workspace/{shop}/exports/products', [ShopWorkspaceController::class, 'exportProducts'])->name('workspace.exports.products');
     Route::post('workspace/{shop}/bulk-prices', [ShopWorkspaceController::class, 'bulkPrices'])->name('workspace.bulk-prices');
     Route::get('workspace/{shop}/payments', [ShopWorkspaceController::class, 'payments'])->name('workspace.payments');

@@ -256,7 +256,11 @@ test('failed payment initialization releases its stock reservation', function ()
     $shop = Shop::factory()->approved()->create(['paystack_secret_key' => 'sk_test_secret']);
     $product = Product::factory()->for($shop)->approved()->create(['quantity' => 1]);
     Http::fake(['api.paystack.co/transaction/initialize' => Http::response(['status' => false], 500)]);
-    $this->post(route('checkout.store', $shop->slug), ['customer_name' => 'Buyer', 'customer_email' => 'buyer@example.com', 'customer_phone' => '+233241234567', 'items' => [$product->id => 1]])->assertSessionHasErrors('payment');
+    $cart = [$product->id => 1];
+    $this->withSession(['storefront_cart_'.$shop->id => $cart])
+        ->post(route('checkout.store', $shop->slug), ['customer_name' => 'Buyer', 'customer_email' => 'buyer@example.com', 'customer_phone' => '+233241234567', 'items' => [$product->id => 1]])
+        ->assertSessionHasErrors('payment')
+        ->assertSessionHas('storefront_cart_'.$shop->id, $cart);
     expect(Order::first()->status)->toBe('cancelled');
     expect(app(SalesService::class)->available($product))->toBe(1);
     Http::assertSentCount(1);

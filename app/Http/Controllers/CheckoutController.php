@@ -42,9 +42,10 @@ class CheckoutController extends Controller
 
             $order = $sales->create($shop, $data, $items);
             try {
+                $paymentUrl = $paystack->initialize($order);
                 $request->session()->forget('storefront_cart_'.$shop->id);
 
-                return redirect()->away($paystack->initialize($order));
+                return redirect()->away($paymentUrl);
             } catch (ValidationException|ConnectionException $exception) {
                 $order->update(['status' => 'cancelled']);
                 throw ValidationException::withMessages(['payment' => 'Payment could not be started. Please try again.']);

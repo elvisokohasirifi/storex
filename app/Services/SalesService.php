@@ -197,6 +197,49 @@ class SalesService
         return $this->voidOrder($order, 'refunded', $reason);
     }
 
+    public function confirmManual(Order $order, User $seller): Order
+    {
+        return DB::transaction(function () use ($order, $seller): Order {
+            $shop = Shop::whereKey($order->shop_id)->lockForUpdate()->firstOrFail();
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (! $seller->manages($shop)) {
+                abort(403);
+            }
+            if ($order->channel !== 'manual' || ! in_array($order->payment_method, ['cash', 'momo'], true)) {
+                throw ValidationException::withMessages(['order' => 'Only manual cash or mobile money orders can be confirmed here.']);
+            }
+            if (in_array($order->status, ['paid', 'paid_review'], true)) {
+                return $order;
+            }
+            if ($order->status !== 'pending') {
+                throw ValidationException::withMessages(['order' => 'This order can no longer be confirmed.']);
+            }
+
+            $order->load(['items' => fn ($query) => $query->orderBy('product_id')]);
+            $products = $this->lockedProductsFor($order);
+            $canFulfil = $this->canFulfil($shop, $order, $products);
+            if ($canFulfil) {
+                foreach ($order->items as $item) {
+                    $product = $products->get($item->product_id);
+                    if ($product?->quantity !== null) {
+                        $this->recordSaleMovement($shop, $product, $order, $item->quantity, $seller);
+                    }
+                }
+            }
+
+            $order->update([
+                'seller_id' => $seller->id,
+                'till_shift_id' => $this->openShiftFor($shop, $seller)?->id,
+                'status' => $canFulfil ? 'paid' : 'paid_review',
+                'paid_at' => now(),
+                'expires_at' => null,
+            ]);
+            AuditLog::record($shop, 'sale.manual_confirmed', $order, ['payment_method' => $order->payment_method, 'status' => $order->status]);
+
+            return $order;
+        }, 3);
+    }
+
     /** @param array<string, mixed> $payment */
     public function settle(Order $order, array $payment): Order
     {
@@ -214,19 +257,12 @@ class SalesService
             if (in_array($order->status, ['paid', 'paid_review'], true)) {
                 return $order;
             }
-            $items = $order->items()->orderBy('product_id')->get();
-            $products = Product::whereIn('id', $items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-            $canFulfil = $shop->status === 'approved';
-            foreach ($items as $item) {
-                $product = $products->get($item->product_id);
-                $available = $product ? $this->available($product, $order->id) : 0;
-                if (! $product || $product->visibility !== 'published' || ($available !== null && $available < $item->quantity)) {
-                    $canFulfil = false;
-                }
-            }
+            $order->load(['items' => fn ($query) => $query->orderBy('product_id')]);
+            $products = $this->lockedProductsFor($order);
+            $canFulfil = $this->canFulfil($shop, $order, $products);
             if ($canFulfil) {
-                foreach ($items as $item) {
-                    $product = $products[$item->product_id];
+                foreach ($order->items as $item) {
+                    $product = $products->get($item->product_id);
                     if ($product->quantity !== null) {
                         $this->recordSaleMovement($shop, $product, $order, $item->quantity);
                     }
@@ -272,6 +308,27 @@ class SalesService
     private function openShiftFor(Shop $shop, User $seller): ?TillShift
     {
         return TillShift::where('shop_id', $shop->id)->where('user_id', $seller->id)->where('status', 'open')->latest('opened_at')->first();
+    }
+
+    /** @return Collection<string, Product> */
+    private function lockedProductsFor(Order $order): Collection
+    {
+        return Product::whereIn('id', $order->items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+    }
+
+    /** @param  Collection<string, Product>  $products */
+    private function canFulfil(Shop $shop, Order $order, Collection $products): bool
+    {
+        $canFulfil = $shop->status === 'approved';
+        foreach ($order->items as $item) {
+            $product = $products->get($item->product_id);
+            $available = $product ? $this->available($product, $order->id) : 0;
+            if (! $product || $product->visibility !== 'published' || ($available !== null && $available < $item->quantity)) {
+                $canFulfil = false;
+            }
+        }
+
+        return $canFulfil;
     }
 
     private function receiptNumber(): string

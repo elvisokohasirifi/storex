@@ -241,6 +241,9 @@ test('shop operations page manages suppliers purchase orders shifts variants tra
     $this->assertDatabaseHas('purchase_orders', ['id' => $purchaseOrder->id, 'status' => 'received']);
     $this->assertDatabaseHas('stock_batches', ['product_id' => $product->id, 'supplier_id' => $supplier->id, 'quantity_received' => 5]);
 
+    $this->post(route('workspace.purchase-order.receive', [$shop, $purchaseOrder]))->assertUnprocessable();
+    $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 11]);
+
     $this->post(route('workspace.variant', $shop), ['product_id' => $product->id, 'name' => 'Family pack', 'selling_price' => '18.00', 'quantity' => 2, 'reorder_level' => 4])->assertRedirect()->assertSessionHasNoErrors();
     $this->assertDatabaseHas('product_variants', ['product_id' => $product->id, 'name' => 'Family pack']);
 

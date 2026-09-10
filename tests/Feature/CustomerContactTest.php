@@ -67,3 +67,54 @@ test('storefront checkout creates manual cash and momo orders when paystack is n
         $response->assertSee('Pay with cash');
     }
 })->with(['cash', 'momo']);
+
+test('shop staff can confirm pending manual payments and update stock', function (string $paymentMethod) {
+    $shop = Shop::factory()->approved()->create(['enable_inventory_management' => true, 'momo_number' => '+233241234567', 'momo_account_name' => 'Corner Shop Wallet']);
+    $product = Product::factory()->for($shop)->approved()->create(['quantity' => 5, 'selling_price' => '10.00']);
+
+    $this->post(route('checkout.store', $shop->slug), [
+        'customer_name' => 'Manual Buyer',
+        'customer_phone' => '+233241234567',
+        'payment_method' => $paymentMethod,
+        'items' => [$product->id => 2],
+    ])->assertRedirect();
+    $order = Order::firstOrFail();
+    $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 5]);
+
+    $this->actingAs($shop->owner, 'backpack')->get(route('workspace.operations', $shop))
+        ->assertOk()
+        ->assertSee('Manual payments')
+        ->assertSee($order->reference)
+        ->assertSee(route('workspace.sale.confirm-manual', [$shop, $order]), false);
+    $this->post(route('workspace.sale.confirm-manual', [$shop, $order]))->assertRedirect()->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'paid', 'seller_id' => $shop->owner_id]);
+    $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 3]);
+    $this->assertDatabaseHas('inventory_movements', ['shop_id' => $shop->id, 'product_id' => $product->id, 'type' => 'sale', 'quantity' => -2, 'user_id' => $shop->owner_id]);
+
+    $this->post(route('workspace.sale.confirm-manual', [$shop, $order]))->assertRedirect()->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 3]);
+})->with(['cash', 'momo']);
+
+test('manual payment confirmation flags unavailable orders for review without overselling', function () {
+    $shop = Shop::factory()->approved()->create(['enable_inventory_management' => true]);
+    $product = Product::factory()->for($shop)->approved()->create(['quantity' => 2, 'selling_price' => '10.00']);
+
+    $this->post(route('checkout.store', $shop->slug), [
+        'customer_name' => 'Manual Buyer',
+        'customer_phone' => '+233241234567',
+        'payment_method' => 'cash',
+        'items' => [$product->id => 2],
+    ])->assertRedirect();
+    $order = Order::firstOrFail();
+    $product->forceFill(['quantity' => 1])->save();
+
+    $this->actingAs($shop->owner, 'backpack')
+        ->post(route('workspace.sale.confirm-manual', [$shop, $order]))
+        ->assertRedirect()
+        ->assertSessionHas('warning');
+
+    $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'paid_review', 'seller_id' => $shop->owner_id]);
+    $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 1]);
+    $this->assertDatabaseMissing('inventory_movements', ['shop_id' => $shop->id, 'product_id' => $product->id, 'type' => 'sale', 'quantity' => -2]);
+});

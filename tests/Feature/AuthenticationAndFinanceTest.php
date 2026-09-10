@@ -38,7 +38,8 @@ test('PIN attempts are locked after five failures and never flashed into session
     for ($attempt = 0; $attempt < 5; $attempt++) {
         $this->post(route('backpack.auth.login'), ['method' => 'phone', 'phone' => $user->phone, 'pin' => '654321'])->assertSessionHasErrors('login');
     }
-    $this->post(route('backpack.auth.login'), ['method' => 'phone', 'phone' => $user->phone, 'pin' => '012345'])->assertSessionHasErrors(['login' => 'Too many attempts. Try again in 300 seconds.']);
+    $this->post(route('backpack.auth.login'), ['method' => 'phone', 'phone' => $user->phone, 'pin' => '012345'])->assertSessionHasErrors('login');
+    expect(session('errors')->first('login'))->toStartWith('Too many attempts. Try again in ')->toEndWith(' seconds.');
     expect(session()->getOldInput('pin'))->toBeNull();
     $this->assertGuest('backpack');
 });

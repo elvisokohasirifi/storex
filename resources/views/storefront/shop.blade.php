@@ -4,9 +4,27 @@
 <header class="shop-nav">
     <a class="shop-wordmark" href="{{ route('shops.show', $shop->slug) }}">
         @if($shop->logo)<img src="{{ Storage::disk('public')->url(Str::start($shop->logo, 'shops/')) }}" alt="{{ $shop->name }} logo">@else<span class="shop-monogram" aria-hidden="true">{{ Str::upper(Str::substr($shop->name, 0, 1)) }}</span>@endif
-        <span>{{ $shop->name }}</span>
     </a>
     <nav aria-label="Shop navigation"><a href="#products">Products</a><a href="#about">About</a><a href="#contact">Contact</a></nav>
+    @unless($isPreview)
+        <div class="shop-cart">
+            <a class="cart-trigger" href="{{ route('cart.show', $shop->slug) }}" aria-label="View cart">
+                <span aria-hidden="true">&#128722;</span><strong>Cart</strong><em>{{ array_sum($cart) }}</em>
+            </a>
+            <div class="cart-popover" role="status">
+                <h3>Your cart</h3>
+                @forelse($cartProducts as $cartProduct)
+                    <div class="cart-popover-item"><span>{{ $cartProduct->name }} × {{ $cart[$cartProduct->id] }}</span><strong>{{ $shop->currency }} {{ number_format(($cartProductPrices[$cartProduct->id]['final'] * $cart[$cartProduct->id]) / 100, 2) }}</strong></div>
+                @empty
+                    <p>Your cart is waiting for something good.</p>
+                @endforelse
+                @if($cartProducts->isNotEmpty())
+                    <div class="cart-popover-total"><span>Total</span><strong>{{ $shop->currency }} {{ number_format($cartTotals['total'] / 100, 2) }}</strong></div>
+                    <a class="button small" href="{{ route('cart.show', $shop->slug) }}">View cart ↗</a>
+                @endif
+            </div>
+        </div>
+    @endunless
     <a class="shop-platform-link" href="{{ route('home') }}">on storex. ↗</a>
 </header>
 @endsection
@@ -31,6 +49,7 @@
 @if($isOwnerPreview)
 <div class="shop-preview" role="status"><span><strong>Owner preview</strong> · Shop {{ ucfirst($shop->status) }} · Products visible · Checkout disabled in preview</span><a href="{{ route('workspace.show', $shop) }}">Back to shop overview ↗</a></div>
 @endif
+@if(session('success'))<div class="notice" role="status">{{ session('success') }}</div>@endif
 <section class="shop-hero">
     @if($shop->banner)<img class="shop-hero-banner" src="{{ Storage::disk('public')->url(Str::start($shop->banner, 'shops/')) }}" alt="{{ $shop->name }} banner">@else<div class="shop-hero-pattern" aria-hidden="true"><span>✦</span></div>@endif
     <div class="shop-hero-copy"><p class="eyebrow">LOCAL FINDS. EVERYDAY FAVOURITES.</p><h1>{{ $shop->name }}</h1><p class="shop-location">{{ $shop->location }}</p><div class="shop-hero-actions"><a class="button" href="#products">Explore products ↗</a><a href="#contact">Get in touch →</a></div></div>
@@ -39,14 +58,35 @@
     <div><p class="eyebrow">MEET YOUR SHOP</p><h2>A little about us.</h2></div>
     <div><p class="preserve-lines">{{ $shop->description ?: 'Welcome to '.$shop->name.'. Explore our products and get in touch — we would love to hear from you.' }}</p><a class="shop-text-link" href="#contact">Find us in {{ $shop->location }} ↗</a></div>
 </section>
-<section class="shop-section shop-products" id="products"><div class="section-heading"><div><p class="eyebrow">CURATED BY YOUR LOCAL SHOP</p><h2>Find something good.</h2></div><form class="search" method="get"><input name="q" value="{{ $search }}" placeholder="Search products or barcode" aria-label="Search products"><button aria-label="Search">↗</button></form></div>
-@unless($isPreview)<form method="post" action="{{ route('checkout.store', $shop->slug) }}">@csrf @endunless
-<div class="product-grid">@forelse($products as $product)@php($price = $productPrices[$product->id])<article class="product-card"><div class="product-image">@if($product->image)<img src="{{ Storage::disk('public')->url(Str::start($product->image, 'products/')) }}" alt="{{ $product->name }}" loading="lazy">@else<span aria-hidden="true">✦</span>@endif</div><div class="product-body"><div class="product-meta">{{ $product->category?->name }}@if($product->category && $product->brand) · @endif{{ $product->brand?->name }}</div><h3>{{ $product->name }}</h3>@if($isPreview && $product->visibility === 'draft')<span class="product-status">Draft</span>@endif<p class="preserve-lines">{{ $product->description }}</p><div class="product-price"><strong>{{ $shop->currency }} {{ number_format($price['final'] / 100, 2) }}</strong>@if($price['final'] < (int) round((float) $product->selling_price * 100))<span><s>{{ $shop->currency }} {{ number_format((float) $product->selling_price, 2) }}</s>@if($price['discount_name']) &middot; {{ $price['discount_name'] }}@endif</span>@endif<span>{{ $product->quantity === null ? 'Available' : ($product->quantity > 0 ? $product->quantity.' in stock' : 'Sold out') }}</span></div>
-@if(! $isPreview && $product->quantity !== 0)<label class="quantity-label">Quantity<input type="number" name="items[{{ $product->id }}]" value="{{ old('items.'.$product->id, 0) }}" min="0" max="{{ min($product->quantity ?? 10000, 10000) }}" aria-label="Quantity for {{ $product->name }}"></label>@endif</div></article>@empty<div class="empty-state"><h3>No products to show yet.</h3><p>Check back soon for more good things.</p></div>@endforelse</div>
-{{ $products->links() }}
-@if(! $isPreview && $products->isNotEmpty())<section class="checkout-box"><div><p class="eyebrow">READY WHEN YOU ARE</p><h2>Make it yours.</h2><p>Choose quantities above, then enter your details. Your total is confirmed on Paystack before you pay.</p><p class="small-text">Stock is reserved for 15 minutes during checkout. Contact the shop to arrange collection or delivery. Submit the products on this page before browsing another page.</p></div><div class="checkout-fields">
-<label>Full name<input name="customer_name" required maxlength="150" autocomplete="name" value="{{ old('customer_name') }}"></label><label>Email address (required by Paystack)<input type="email" name="customer_email" required autocomplete="email" value="{{ old('customer_email') }}"></label><label>Phone number<input type="tel" name="customer_phone" required maxlength="50" autocomplete="tel" value="{{ old('customer_phone') }}"></label><label>Delivery address or collection note (optional)<textarea name="delivery_address" rows="3">{{ old('delivery_address') }}</textarea></label>
-@if($shop->paystack_secret_key)<button class="button" type="submit">Continue to secure payment ↗</button>@else<p class="notice">Online payments are not enabled yet. Contact the shop to purchase.</p>@endif</div></section>@endif @unless($isPreview)</form>@endunless</section>
+<section class="shop-section shop-products" id="products">
+    <div class="section-heading"><div><p class="eyebrow">CURATED BY YOUR LOCAL SHOP</p><h2>Find something good.</h2></div><form class="search" method="get"><input name="q" value="{{ $search }}" placeholder="Search products or barcode" aria-label="Search products"><button aria-label="Search">↗</button></form></div>
+    <div class="product-grid">
+        @forelse($products as $product)
+            @php($price = $productPrices[$product->id])
+            <article class="product-card">
+                <div class="product-image">@if($product->image)<img src="{{ Storage::disk('public')->url(Str::start($product->image, 'products/')) }}" alt="{{ $product->name }}" loading="lazy">@else<span aria-hidden="true">✦</span>@endif</div>
+                <div class="product-body">
+                    <div class="product-meta">{{ $product->category?->name }}@if($product->category && $product->brand) · @endif{{ $product->brand?->name }}</div>
+                    <h3>{{ $product->name }}</h3>
+                    @if($isPreview && $product->visibility === 'draft')<span class="product-status">Draft</span>@endif
+                    <p class="preserve-lines">{{ $product->description }}</p>
+                    <div class="product-price"><strong>{{ $shop->currency }} {{ number_format($price['final'] / 100, 2) }}</strong>@if($price['final'] < (int) round((float) $product->selling_price * 100))<span><s>{{ $shop->currency }} {{ number_format((float) $product->selling_price, 2) }}</s>@if($price['discount_name']) &middot; {{ $price['discount_name'] }}@endif</span>@endif<span>{{ $product->quantity === null ? 'Available' : ($product->quantity > 0 ? $product->quantity.' in stock' : 'Sold out') }}</span></div>
+                    @if(! $isPreview && $product->quantity !== 0)
+                        <form class="add-cart-form" method="post" action="{{ route('cart.add', $shop->slug) }}">
+                            @csrf
+                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+                            <label class="quantity-label">Quantity<input type="number" name="quantity" value="1" min="1" max="{{ min($product->quantity ?? 10000, 10000) }}" aria-label="Quantity for {{ $product->name }}"></label>
+                            <button class="button small add-cart-button" type="submit">Add to cart</button>
+                        </form>
+                    @endif
+                </div>
+            </article>
+        @empty
+            <div class="empty-state"><h3>No products to show yet.</h3><p>Check back soon for more good things.</p></div>
+        @endforelse
+    </div>
+    {{ $products->links() }}
+</section>
 <section class="shop-contact" id="contact">
     <div><p class="eyebrow">LET’S TALK</p><h2>Good things start<br>with a hello.</h2><p>Questions about a product, collection, or delivery? Contact the shop directly.</p></div>
     <dl>

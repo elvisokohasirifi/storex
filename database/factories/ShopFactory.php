@@ -11,7 +11,7 @@ class ShopFactory extends Factory
 {
     public function definition(): array
     {
-        return ['owner_id' => User::factory(), 'name' => fake()->company(), 'location' => 'Accra', 'contacts' => '+233241234567', 'email' => fake()->unique()->safeEmail(), 'status' => 'pending', 'currency' => 'GHS'];
+        return ['owner_id' => User::factory(), 'name' => fake()->company(), 'location' => 'Accra', 'contacts' => '+233241234567', 'email' => fake()->unique()->safeEmail(), 'status' => 'pending', 'currency' => 'GHS', 'enable_inventory_management' => false, 'momo_number' => null, 'momo_account_name' => null];
     }
 
     public function approved(): static

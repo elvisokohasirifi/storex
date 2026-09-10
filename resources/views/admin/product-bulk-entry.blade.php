@@ -13,8 +13,8 @@
         </select></label>
         <label class="form-label w-100">CSV file<input class="form-control" type="file" name="csv_file" accept=".csv,.txt,text/csv,text/plain"></label>
         <p class="small text-muted">Maximum 200 KB. If both are supplied, the pasted CSV is used.</p>
-        <label class="form-label w-100">Or paste CSV<textarea class="form-control font-monospace" name="csv" rows="6" placeholder="name,description,cost_price,selling_price,sale_price,quantity,barcode,sku&#10;Fresh bread,Made daily,8.00,12.00,10.00,20,123456,BREAD-01">{{ old('csv') }}</textarea></label>
-        <p class="small">Header: <code>name,description,cost_price,selling_price,sale_price,quantity,barcode,sku</code>. Leave cost, sale price, stock, barcode, and SKU blank when not needed. Quote descriptions containing commas or new lines. Add images, categories, and brands after import.</p>
+        <label class="form-label w-100">Or paste CSV<textarea class="form-control font-monospace" name="csv" rows="6" placeholder="name,description,cost_price,selling_price,sale_price,quantity,reorder_level,barcode,sku&#10;Fresh bread,Made daily,8.00,12.00,10.00,20,10,123456,BREAD-01">{{ old('csv') }}</textarea></label>
+        <p class="small">Header: <code>name,description,cost_price,selling_price,sale_price,quantity,reorder_level,barcode,sku</code>. Leave cost, sale price, stock, reorder level, barcode, and SKU blank when not needed. Quote descriptions containing commas or new lines. Add images, categories, and brands after import.</p>
         <button class="btn btn-primary">Upload products</button>
     </form>
     @else<p class="text-muted">Create a shop to upload products. Frozen shops cannot import products.</p>@endif

@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [StorefrontController::class, 'index'])->name('home');
 Route::get('/shops/{shop:slug}', [StorefrontController::class, 'show'])->name('shops.show');
+Route::post('/shops/{shop:slug}/cart', [StorefrontController::class, 'addToCart'])->middleware('throttle:60,1')->name('cart.add');
+Route::get('/shops/{shop:slug}/cart', [StorefrontController::class, 'cartPage'])->name('cart.show');
+Route::put('/shops/{shop:slug}/cart', [StorefrontController::class, 'updateCart'])->middleware('throttle:60,1')->name('cart.update');
+Route::get('/shops/{shop:slug}/checkout', [StorefrontController::class, 'checkoutPage'])->name('checkout.show');
 Route::post('/shops/{shop:slug}/checkout', [CheckoutController::class, 'store'])->middleware('throttle:10,1')->name('checkout.store');
 Route::get('/payments/return', [CheckoutController::class, 'callback'])->middleware('throttle:30,1')->name('checkout.callback');
 Route::post('/payments/paystack/{shop}/webhook', [CheckoutController::class, 'webhook'])->name('checkout.webhook');

@@ -195,11 +195,20 @@ test('changed product details stay approved and submitted record IDs cannot redi
     expect($other->fresh()->name)->toBe('Other shop');
 });
 
-test('Paystack credentials are encrypted and do not appear in rendered forms', function () {
+test('Paystack and momo credentials are saved and saved keys do not appear in rendered forms', function () {
     $shop = Shop::factory()->create();
-    $this->actingAs($shop->owner, 'backpack')->post(route('workspace.credentials', $shop), ['secret_key' => 'sk_test_private123', 'public_key' => 'pk_test_public123', 'currency' => 'GHS'])->assertSessionHasNoErrors();
+    $this->actingAs($shop->owner, 'backpack')->post(route('workspace.credentials', $shop), [
+        'secret_key' => 'sk_test_private123',
+        'public_key' => 'pk_test_public123',
+        'momo_number' => '+233241234567',
+        'momo_account_name' => 'Corner Shop Wallet',
+        'currency' => 'GHS',
+    ])->assertSessionHasNoErrors();
     expect($shop->fresh()->paystack_secret_key)->toBe('sk_test_private123');
+    expect($shop->fresh()->momo_number)->toBe('+233241234567');
+    expect($shop->fresh()->momo_account_name)->toBe('Corner Shop Wallet');
     expect(DB::table('shops')->where('id', $shop->id)->value('paystack_secret_key'))->not->toContain('sk_test_private123');
+    $this->get(route('workspace.payments', $shop))->assertOk()->assertSee('Mobile money: Saved')->assertDontSee('sk_test_private123')->assertDontSee('pk_test_public123');
     $this->get(route('workspace.show', $shop))->assertOk()->assertDontSee('sk_test_private123')->assertDontSee('pk_test_public123');
 });
 

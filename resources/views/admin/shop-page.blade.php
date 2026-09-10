@@ -19,7 +19,11 @@
 <nav class="d-flex flex-wrap gap-2 mb-4" aria-label="Shop management">
     <a class="btn {{ request()->routeIs('workspace.show') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.show', $shop) }}">Overview</a>
     <a class="btn btn-outline-primary" href="{{ route('product.index', ['shop_id' => $shop->id]) }}">Products</a>
+    @if($canManage && $shop->enable_inventory_management)
+        <a class="btn {{ request()->routeIs('workspace.inventory', 'workspace.stock') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.inventory', $shop) }}">Inventory management</a>
+    @endif
     @if($canManage)
+        <a class="btn {{ request()->routeIs('workspace.operations') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.operations', $shop) }}">Operations</a>
         <a class="btn {{ request()->routeIs('shop-discount.*') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('shop-discount.index', ['shop_id' => $shop->id]) }}">Discounts</a>
     @endif
     <a class="btn {{ request()->routeIs('workspace.till') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.till', $shop) }}">Till / point of sale</a>

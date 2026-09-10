@@ -45,7 +45,7 @@ class ShopCrudController extends CrudController
 
     protected function setupListOperation(): void
     {
-        foreach (['name', 'slug', 'location', 'email', 'status'] as $name) {
+        foreach (['name', 'slug', 'location', 'email', 'status', 'enable_inventory_management'] as $name) {
             CRUD::column($name)->label(ucfirst($name))->type('text');
         }
     }
@@ -53,6 +53,7 @@ class ShopCrudController extends CrudController
     protected function setupShowOperation(): void
     {
         $this->setupListOperation();
+        CRUD::column('enable_inventory_management')->label('Inventory management')->type('boolean');
         foreach (['logo', 'banner'] as $name) {
             CRUD::column($name)->label(ucfirst($name))->type('image');
             $this->crud->modifyColumn($name, ['disk' => 'public', 'height' => '200px', 'value' => fn (Shop $entry) => $entry->{$name} ? Str::start($entry->{$name}, 'shops/') : null]);
@@ -69,6 +70,7 @@ class ShopCrudController extends CrudController
             CRUD::field($name)->label(ucfirst($name))->type($type);
         }
         CRUD::field('slug')->hint('Optional. A unique storefront address is generated if left blank.');
+        CRUD::field('enable_inventory_management')->label('Enable inventory management')->type('checkbox')->hint('Requires quantity and cost price on every product, locks direct stock editing, and enables stock receiving, returns, adjustments, low-stock alerts, and valuation reports.');
         foreach (['logo', 'banner'] as $name) {
             CRUD::field($name)->label(ucfirst($name))->type('upload')->withFiles(['disk' => 'public', 'path' => 'shops']);
         }

@@ -11,7 +11,7 @@ class ProductFactory extends Factory
 {
     public function definition(): array
     {
-        return ['shop_id' => Shop::factory(), 'name' => fake()->words(3, true), 'selling_price' => '12.50', 'sale_price' => null, 'cost_price' => '8.00', 'quantity' => 20, 'barcode' => fake()->unique()->ean13(), 'status' => 'approved', 'visibility' => 'published'];
+        return ['shop_id' => Shop::factory(), 'name' => fake()->words(3, true), 'selling_price' => '12.50', 'sale_price' => null, 'cost_price' => '8.00', 'quantity' => 20, 'reorder_level' => 10, 'barcode' => fake()->unique()->ean13(), 'status' => 'approved', 'visibility' => 'published'];
     }
 
     public function approved(): static

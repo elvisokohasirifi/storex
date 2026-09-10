@@ -1,5 +1,5 @@
-name,description,cost_price,selling_price,sale_price,quantity,barcode,sku
-Fresh bread,"Made daily, soft and ready for the shelf",8.00,12.00,10.00,20,1234567890123,BREAD-01
-Notebook,,3.50,6.00,,50,,NOTE-01
+name,description,cost_price,selling_price,sale_price,quantity,reorder_level,barcode,sku
+Fresh bread,"Made daily, soft and ready for the shelf",8.00,12.00,10.00,20,10,1234567890123,BREAD-01
+Notebook,,3.50,6.00,,50,15,,NOTE-01
 Organic honey,"Pure local honey
-500ml bottle",,25.00,22.50,,9876543210987,HONEY-500
+500ml bottle",,25.00,22.50,,10,9876543210987,HONEY-500

@@ -34,7 +34,14 @@ class ProductRequest extends FormRequest
         if (! $this->has('visibility')) {
             $this->merge(['visibility' => 'published']);
         }
+        if (! $this->has('reorder_level')) {
+            $this->merge(['reorder_level' => 10]);
+        }
         if ($this->route('id')) {
+            $product = Product::whereKey($this->route('id'))->first();
+            if ($product?->shop?->enable_inventory_management) {
+                $this->merge(['quantity' => $product->quantity]);
+            }
             $this->merge(['id' => $this->route('id')]);
         }
     }
@@ -42,12 +49,16 @@ class ProductRequest extends FormRequest
     /** @return array<string, mixed> */
     public static function productRules(string $shopId, ?string $id = null): array
     {
+        $inventoryManagementEnabled = (bool) Shop::whereKey($shopId)->value('enable_inventory_management');
+
         return [
-            'name' => ['required', 'string', 'max:150'], 'description' => ['nullable', 'string', 'max:10000'],
+            'name' => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:10000'],
             'selling_price' => ['required', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
             'sale_price' => ['nullable', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2', 'lte:selling_price'],
-            'cost_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
-            'quantity' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'cost_price' => [Rule::requiredIf($inventoryManagementEnabled), 'nullable', 'numeric', 'min:0', 'max:99999999.99', 'decimal:0,2'],
+            'quantity' => [Rule::requiredIf($inventoryManagementEnabled), 'nullable', 'integer', 'min:0', 'max:100000000'],
+            'reorder_level' => ['required', 'integer', 'min:0', 'max:100000000'],
             'barcode' => ['nullable', 'string', 'max:100', Rule::unique('products')->where('shop_id', $shopId)->ignore($id)],
             'sku' => ['nullable', 'string', 'max:100'],
             'category_id' => ['nullable', 'uuid', Rule::exists('product_categories', 'id')->where('shop_id', $shopId)],

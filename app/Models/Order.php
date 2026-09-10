@@ -21,7 +21,19 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['payment_secret' => 'encrypted', 'subtotal' => 'integer', 'discount_total' => 'integer', 'total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime'];
+        return ['payment_secret' => 'encrypted', 'subtotal' => 'integer', 'discount_total' => 'integer', 'total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'cancelled_at' => 'datetime', 'refunded_at' => 'datetime'];
+    }
+
+    /** @return BelongsTo<Customer, $this> */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /** @return BelongsTo<TillShift, $this> */
+    public function tillShift(): BelongsTo
+    {
+        return $this->belongsTo(TillShift::class);
     }
 
     /** @return BelongsTo<Shop, $this> */

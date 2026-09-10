@@ -41,3 +41,29 @@ test('online checkout retains Paystack email requirement', function () {
     $this->assertDatabaseCount('orders', 0);
     Http::assertNothingSent();
 });
+
+test('storefront checkout creates manual cash and momo orders when paystack is not configured', function (string $paymentMethod) {
+    $shop = Shop::factory()->approved()->create(['momo_number' => '+233241234567', 'momo_account_name' => 'Corner Shop Wallet']);
+    $product = Product::factory()->for($shop)->approved()->create(['quantity' => 5, 'selling_price' => '10.00']);
+
+    $this->post(route('checkout.store', $shop->slug), [
+        'customer_name' => 'Manual Buyer',
+        'customer_phone' => '+233241234567',
+        'payment_method' => $paymentMethod,
+        'items' => [$product->id => 2],
+    ])->assertRedirect();
+
+    $order = Order::firstOrFail();
+    expect($order->channel)->toBe('manual');
+    expect($order->payment_method)->toBe($paymentMethod);
+    expect($order->status)->toBe('pending');
+    expect($order->customer_email)->toBeNull();
+    Http::assertNothingSent();
+
+    $response = $this->get(route('checkout.callback', ['reference' => $order->reference]))->assertOk()->assertSee('Your order is reserved');
+    if ($paymentMethod === 'momo') {
+        $response->assertSee('Corner Shop Wallet')->assertSee('+233241234567');
+    } else {
+        $response->assertSee('Pay with cash');
+    }
+})->with(['cash', 'momo']);

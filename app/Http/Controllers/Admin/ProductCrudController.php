@@ -45,7 +45,7 @@ class ProductCrudController extends CrudController
 
     protected function setupListOperation(): void
     {
-        foreach (['name', 'barcode', 'visibility', 'selling_price', 'sale_price', 'quantity'] as $name) {
+        foreach (['name', 'barcode', 'visibility', 'selling_price', 'sale_price', 'quantity', 'reorder_level'] as $name) {
             CRUD::column($name)->label(ucwords(str_replace('_', ' ', $name)))->type('text');
         }
         CRUD::column('shop')->label('Shop')->type('select');
@@ -57,6 +57,10 @@ class ProductCrudController extends CrudController
             CRUD::button('duplicate')->stack('line')->view('admin.buttons.duplicate');
             if ($this->crud->getCurrentOperation() === 'list') {
                 CRUD::button('bulk_upload')->stack('top')->view('admin.buttons.bulk-products');
+                $selectedShop = is_string(request()->query('shop_id')) ? Shop::whereIn('id', backpack_user()->accessibleShops()->select('shops.id'))->whereKey(request()->query('shop_id'))->first() : null;
+                if ($selectedShop?->enable_inventory_management) {
+                    CRUD::button('receive_stock')->stack('top')->view('admin.buttons.receive-stock');
+                }
                 Widget::add([
                     'name' => 'bulk_product_entry', 'type' => 'view', 'view' => 'admin.product-bulk-entry', 'section' => 'after_content',
                     'shops' => backpack_user()->accessibleShops()->where('status', '!=', 'frozen')->orderBy('name')->get(),
@@ -70,7 +74,7 @@ class ProductCrudController extends CrudController
         $this->setupListOperation();
         CRUD::column('image')->label('Product image')->type('image');
         $this->crud->modifyColumn('image', ['disk' => 'public', 'height' => '200px', 'value' => fn (Product $entry) => $entry->image ? Str::start($entry->image, 'products/') : null]);
-        foreach (['description', 'sku', 'cost_price'] as $name) {
+        foreach (['description', 'sku', 'cost_price', 'reorder_level'] as $name) {
             CRUD::column($name)->label(ucwords(str_replace('_', ' ', $name)))->type('text');
         }
     }
@@ -88,7 +92,7 @@ class ProductCrudController extends CrudController
             $this->crud->addField(['name' => 'quick_'.$classification, 'label' => $classification, 'type' => 'classification_quick_create', 'target' => $name, 'endpoint' => route('product-classifications.'.$classification)]);
         }
         Widget::add(['type' => 'script', 'content' => asset('product-classifications.js')]);
-        foreach (['name' => 'text', 'description' => 'textarea', 'cost_price' => 'number', 'selling_price' => 'number', 'sale_price' => 'number', 'quantity' => 'number', 'barcode' => 'text', 'sku' => 'text'] as $name => $type) {
+        foreach (['name' => 'text', 'description' => 'textarea', 'cost_price' => 'number', 'selling_price' => 'number', 'sale_price' => 'number', 'quantity' => 'number', 'reorder_level' => 'number', 'barcode' => 'text', 'sku' => 'text'] as $name => $type) {
             CRUD::field($name)->label(ucwords(str_replace('_', ' ', $name)))->type($type);
         }
         foreach (['cost_price', 'selling_price', 'sale_price'] as $name) {
@@ -105,7 +109,8 @@ class ProductCrudController extends CrudController
         ]);
         CRUD::addField(['name' => 'barcode_scanner', 'label' => 'Barcode scanner', 'type' => 'barcode_scanner', 'target' => 'barcode']);
         CRUD::field('barcode_scanner')->after('barcode');
-        CRUD::field('quantity')->hint('Leave blank to sell without tracking stock. Zero means out of stock.');
+        CRUD::field('quantity')->hint('Leave blank to sell without tracking stock unless inventory management is enabled for the shop. Zero means out of stock.');
+        CRUD::field('reorder_level')->default(10)->attributes(['min' => '0', 'step' => '1'])->hint('Low-stock warnings appear when quantity is at or below this number.');
         CRUD::field('image')->label('Product image')->type('upload')->withFiles(['disk' => 'public', 'path' => 'products']);
         Widget::add(['type' => 'script', 'content' => asset('barcode-scanner.js')]);
     }
@@ -113,5 +118,10 @@ class ProductCrudController extends CrudController
     protected function setupUpdateOperation(): void
     {
         $this->setupCreateOperation();
+
+        $product = request()->route('id') ? Product::with('shop')->find(request()->route('id')) : null;
+        if ($product?->shop?->enable_inventory_management) {
+            CRUD::field('quantity')->attributes(['readonly' => 'readonly'])->hint('Stock is controlled from the inventory page. Use Receive Stock or Stock Adjustment instead of editing this value directly.');
+        }
     }
 }

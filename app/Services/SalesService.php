@@ -2,11 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
+use App\Models\Customer;
+use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Models\ShopDiscount;
+use App\Models\TillShift;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -78,7 +82,7 @@ class SalesService
      * @param  Collection<int, ShopDiscount>  $discounts
      * @return array{amount: int, name: ?string}
      */
-    private function checkoutDiscountFor(int $subtotal, Collection $discounts): array
+    public function checkoutDiscountFor(int $subtotal, Collection $discounts): array
     {
         $bestDiscount = null;
         $bestDiscountAmount = 0;
@@ -154,13 +158,14 @@ class SalesService
                 default => $checkoutDiscount['name'],
             };
             $order = $shop->orders()->create([
-                'seller_id' => $seller?->id, 'reference' => (string) Str::uuid(),
+                'seller_id' => $seller?->id, 'customer_id' => $this->customerFor($shop, $customer)?->id, 'till_shift_id' => $seller ? $this->openShiftFor($shop, $seller)?->id : null, 'reference' => (string) Str::uuid(),
+                'receipt_number' => $this->receiptNumber(),
                 'customer_name' => $customer['customer_name'], 'customer_email' => $customer['customer_email'] ?? null,
                 'customer_phone' => $customer['customer_phone'] ?? null, 'delivery_address' => $customer['delivery_address'] ?? null,
                 'currency' => $shop->currency, 'subtotal' => $subtotal, 'discount_total' => $discountTotal, 'discount_name' => $discountName,
-                'total' => $total, 'channel' => $seller ? 'cash' : 'paystack',
+                'total' => $total, 'channel' => $this->channelFor($customer, $seller), 'payment_method' => $this->paymentMethodFor($customer, $seller),
                 'status' => $seller ? 'paid' : 'pending', 'paid_at' => $seller ? now() : null,
-                'expires_at' => $seller ? null : now()->addMinutes(15), 'payment_secret' => $seller ? null : $shop->paystack_secret_key,
+                'expires_at' => $seller ? null : now()->addMinutes(15), 'payment_secret' => $this->paymentMethodFor($customer, $seller) === 'paystack' ? $shop->paystack_secret_key : null,
             ]);
             foreach ($products as $product) {
                 $quantity = $items[$product->id];
@@ -172,12 +177,24 @@ class SalesService
                     'tracks_stock' => $product->quantity !== null,
                 ]);
                 if ($seller && $product->quantity !== null) {
-                    $product->decrement('quantity', $quantity);
+                    $this->recordSaleMovement($shop, $product, $order, $quantity, $seller);
                 }
             }
 
+            AuditLog::record($shop, 'sale.created', $order, ['total' => $order->total, 'payment_method' => $order->payment_method]);
+
             return $order;
         }, 3);
+    }
+
+    public function cancel(Order $order, string $reason): Order
+    {
+        return $this->voidOrder($order, 'cancelled', $reason);
+    }
+
+    public function refund(Order $order, string $reason): Order
+    {
+        return $this->voidOrder($order, 'refunded', $reason);
     }
 
     /** @param array<string, mixed> $payment */
@@ -211,7 +228,7 @@ class SalesService
                 foreach ($items as $item) {
                     $product = $products[$item->product_id];
                     if ($product->quantity !== null) {
-                        $product->decrement('quantity', $item->quantity);
+                        $this->recordSaleMovement($shop, $product, $order, $item->quantity);
                     }
                 }
             }
@@ -219,5 +236,110 @@ class SalesService
 
             return $order;
         }, 3);
+    }
+
+    private function channelFor(array $customer, ?User $seller): string
+    {
+        if ($seller) {
+            return 'cash';
+        }
+
+        return ($customer['payment_method'] ?? 'paystack') === 'paystack' ? 'paystack' : 'manual';
+    }
+
+    private function paymentMethodFor(array $customer, ?User $seller): string
+    {
+        if ($seller) {
+            return $customer['payment_method'] ?? 'cash';
+        }
+
+        return $customer['payment_method'] ?? 'paystack';
+    }
+
+    private function customerFor(Shop $shop, array $customer): ?Customer
+    {
+        $phone = trim((string) ($customer['customer_phone'] ?? ''));
+        if ($phone === '') {
+            return null;
+        }
+
+        return $shop->customers()->updateOrCreate(
+            ['phone' => $phone],
+            ['name' => $customer['customer_name'], 'email' => $customer['customer_email'] ?? null, 'address' => $customer['delivery_address'] ?? null],
+        );
+    }
+
+    private function openShiftFor(Shop $shop, User $seller): ?TillShift
+    {
+        return TillShift::where('shop_id', $shop->id)->where('user_id', $seller->id)->where('status', 'open')->latest('opened_at')->first();
+    }
+
+    private function receiptNumber(): string
+    {
+        return 'STX-'.now()->format('Ymd').'-'.Str::upper(Str::random(6));
+    }
+
+    private function voidOrder(Order $order, string $status, string $reason): Order
+    {
+        return DB::transaction(function () use ($order, $status, $reason): Order {
+            $order = Order::with('items')->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $shop = Shop::whereKey($order->shop_id)->lockForUpdate()->firstOrFail();
+            if (! in_array($order->status, ['paid', 'paid_review', 'pending'], true)) {
+                throw ValidationException::withMessages(['order' => 'This sale has already been cancelled or refunded.']);
+            }
+
+            if (in_array($order->status, ['paid', 'paid_review'], true)) {
+                $products = Product::whereIn('id', $order->items->pluck('product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+                foreach ($order->items as $item) {
+                    $product = $products->get($item->product_id);
+                    if (! $product || ! $item->tracks_stock) {
+                        continue;
+                    }
+                    $product->increment('quantity', $item->quantity);
+                    if ($shop->enable_inventory_management) {
+                        InventoryMovement::create([
+                            'shop_id' => $shop->id,
+                            'product_id' => $product->id,
+                            'type' => 'return',
+                            'quantity' => $item->quantity,
+                            'reference_type' => Order::class,
+                            'reference_id' => $order->id,
+                            'reason' => ucfirst($status).' reversal: '.$reason,
+                            'user_id' => backpack_user()?->id,
+                        ]);
+                    }
+                }
+            }
+
+            $order->update([
+                'status' => $status,
+                'cancelled_at' => $status === 'cancelled' ? now() : $order->cancelled_at,
+                'refunded_at' => $status === 'refunded' ? now() : $order->refunded_at,
+                'status_reason' => $reason,
+            ]);
+            AuditLog::record($shop, 'sale.'.$status, $order, ['reason' => $reason]);
+
+            return $order;
+        }, 3);
+    }
+
+    private function recordSaleMovement(Shop $shop, Product $product, Order $order, int $quantity, ?User $seller = null): void
+    {
+        $product->decrement('quantity', $quantity);
+
+        if (! $shop->enable_inventory_management) {
+            return;
+        }
+
+        InventoryMovement::create([
+            'shop_id' => $shop->id,
+            'product_id' => $product->id,
+            'type' => 'sale',
+            'quantity' => -$quantity,
+            'reference_type' => Order::class,
+            'reference_id' => $order->id,
+            'reason' => 'Sale #'.$order->reference,
+            'user_id' => $seller?->id,
+        ]);
     }
 }

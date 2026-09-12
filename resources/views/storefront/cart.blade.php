@@ -3,7 +3,7 @@
 @section('shop-header')
 <header class="shop-nav">
     <a class="shop-wordmark" href="{{ route('shops.show', $shop->slug) }}">@if($shop->logo)<img src="{{ Storage::disk('public')->url(Str::start($shop->logo, 'shops/')) }}" alt="{{ $shop->name }} logo">@else<span class="shop-monogram" aria-hidden="true">{{ Str::upper(Str::substr($shop->name, 0, 1)) }}</span>@endif</a>
-    <nav aria-label="Shop navigation"><a href="{{ route('shops.show', $shop->slug) }}#products">Products</a><a href="{{ route('shops.show', $shop->slug) }}#contact">Contact</a></nav>
+    <nav aria-label="Shop navigation"><a href="{{ route('shops.products', $shop->slug) }}">Products</a><a href="{{ route('shops.show', $shop->slug) }}#contact">Contact</a></nav>
     <a class="cart-trigger" href="{{ route('cart.show', $shop->slug) }}" aria-label="View cart"><span aria-hidden="true">&#128722;</span><strong>Cart</strong><em>{{ array_sum($cart) }}</em></a>
     <a class="shop-platform-link" href="{{ route('home') }}">on storex. ↗</a>
 </header>
@@ -11,9 +11,9 @@
 @section('content')
 <section class="cart-page">
     @if(session('success'))<p class="notice" role="status">{{ session('success') }}</p>@endif
-    <div class="cart-heading"><p class="eyebrow">SHOPPING CART</p><h1>Your cart</h1><a class="shop-text-link" href="{{ route('shops.show', $shop->slug) }}#products">Keep shopping ↗</a></div>
+    <div class="cart-heading"><p class="eyebrow">SHOPPING CART</p><h1>Your cart</h1><a class="shop-text-link" href="{{ route('shops.products', $shop->slug) }}">Keep shopping ↗</a></div>
     @if($cartProducts->isEmpty())
-        <div class="empty-state"><h3>Your cart is empty.</h3><p>Add products from {{ $shop->name }} to start checkout.</p><a class="button" href="{{ route('shops.show', $shop->slug) }}#products">Browse products ↗</a></div>
+        <div class="empty-state"><h3>Your cart is empty.</h3><p>Add products from {{ $shop->name }} to start checkout.</p><a class="button" href="{{ route('shops.products', $shop->slug) }}">Browse products ↗</a></div>
     @else
         <form method="post" action="{{ route('cart.update', $shop->slug) }}">
             @csrf

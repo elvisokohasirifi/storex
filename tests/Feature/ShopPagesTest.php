@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Brand;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\Shop;
 use App\Models\ShopDiscount;
 use App\Models\Supplier;
@@ -120,6 +122,66 @@ test('public storefront uses cart buttons while admin preview stays moderation o
         ->assertSee('Freeze shop')
         ->assertDontSee('Add to cart')
         ->assertDontSee(route('cart.show', $shop->slug));
+});
+
+test('storefront homepage features six products and all products page supports client side filters', function () {
+    $shop = Shop::factory()->approved()->create();
+    $food = ProductCategory::factory()->for($shop)->create(['name' => 'Food']);
+    $drinks = ProductCategory::factory()->for($shop)->create(['name' => 'Drinks']);
+    $freshCo = Brand::factory()->for($shop)->create(['name' => 'FreshCo']);
+    $coolBrew = Brand::factory()->for($shop)->create(['name' => 'CoolBrew']);
+
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 01', 'barcode' => 'BAR001', 'category_id' => $food->id, 'brand_id' => $freshCo->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 02', 'barcode' => 'BAR002', 'category_id' => $food->id, 'brand_id' => $freshCo->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 03', 'barcode' => 'BAR003', 'category_id' => $drinks->id, 'brand_id' => $coolBrew->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 04', 'barcode' => 'BAR004', 'category_id' => $drinks->id, 'brand_id' => $coolBrew->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 05', 'barcode' => 'BAR005', 'category_id' => $food->id, 'brand_id' => $coolBrew->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 06', 'barcode' => 'BAR006', 'category_id' => $drinks->id, 'brand_id' => $freshCo->id]);
+    Product::factory()->for($shop)->approved()->create(['name' => 'Product 07', 'barcode' => 'BAR007', 'category_id' => $drinks->id, 'brand_id' => $freshCo->id]);
+    Product::factory()->for($shop)->draft()->create(['name' => 'Hidden Draft', 'category_id' => $food->id, 'brand_id' => $coolBrew->id]);
+
+    $otherShop = Shop::factory()->approved()->create();
+    $otherCategory = ProductCategory::factory()->for($otherShop)->create(['name' => 'Other Category']);
+    Product::factory()->for($otherShop)->approved()->create(['category_id' => $otherCategory->id]);
+
+    $this->get(route('shops.show', $shop->slug))->assertOk()
+        ->assertSee('FEATURED PRODUCTS')
+        ->assertSee(route('shops.products', $shop->slug))
+        ->assertSee('Product 01')
+        ->assertSee('Product 06')
+        ->assertDontSee('Product 07')
+        ->assertDontSee('FILTER PRODUCTS')
+        ->assertDontSee('Hidden Draft');
+
+    $this->get(route('shops.products', $shop->slug))->assertOk()
+        ->assertSee('ALL PRODUCTS')
+        ->assertSee('/js/storefront-products.js', false)
+        ->assertSee('data-product-browser', false)
+        ->assertSee('data-product-search-input', false)
+        ->assertSee('data-filter-type="category"', false)
+        ->assertSee('data-filter-value="'.$food->id.'"', false)
+        ->assertSee('data-filter-type="brand"', false)
+        ->assertSee('data-filter-value="'.$coolBrew->id.'"', false)
+        ->assertSee('data-product-search="product 07 bar007', false)
+        ->assertSee('Categories')
+        ->assertSee('Food')
+        ->assertSee('Drinks')
+        ->assertSee('Brands')
+        ->assertSee('FreshCo')
+        ->assertSee('CoolBrew')
+        ->assertSee('Product 07')
+        ->assertDontSee('Other Category')
+        ->assertDontSee('Hidden Draft');
+});
+
+test('all products page uses full width grid when no filters exist', function () {
+    $shop = Shop::factory()->approved()->create();
+    Product::factory()->for($shop)->approved()->count(3)->create();
+
+    $this->get(route('shops.products', $shop->slug))->assertOk()
+        ->assertSee('class="product-showcase"', false)
+        ->assertDontSee('has-filters', false)
+        ->assertDontSee('FILTER PRODUCTS');
 });
 
 test('dedicated shop pages reject other tenants and platform admins', function (string $page) {

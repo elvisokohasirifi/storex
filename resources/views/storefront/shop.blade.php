@@ -43,40 +43,21 @@
 @if(session('success'))<div class="notice" role="status" data-cart-message>{{ session('success') }}</div>@else<div class="notice cart-message" role="status" data-cart-message hidden></div>@endif
 <section class="shop-hero">
     @if($shop->banner)<img class="shop-hero-banner" src="{{ Storage::disk('public')->url(Str::start($shop->banner, 'shops/')) }}" alt="{{ $shop->name }} banner">@else<div class="shop-hero-pattern" aria-hidden="true"><span>✦</span></div>@endif
-    <div class="shop-hero-copy"><p class="eyebrow">LOCAL FINDS. EVERYDAY FAVOURITES.</p><h1>{{ $shop->name }}</h1><p class="shop-location">{{ $shop->location }}</p><div class="shop-hero-actions"><a class="button" href="#products">Explore products ↗</a><a href="#contact">Get in touch →</a></div></div>
+    <div class="shop-hero-copy"><p class="eyebrow">LOCAL FINDS. EVERYDAY FAVOURITES.</p><h1>{{ $shop->name }}</h1><p class="shop-location">{{ $shop->location }}</p><div class="shop-hero-actions"><a class="button" href="{{ route('shops.products', $shop->slug) }}">Explore all products ↗</a><a href="#contact">Get in touch →</a></div></div>
 </section>
 <section class="shop-about" id="about">
     <div><p class="eyebrow">MEET YOUR SHOP</p><h2>A little about us.</h2></div>
     <div><p class="preserve-lines">{{ $shop->description ?: 'Welcome to '.$shop->name.'. Explore our products and get in touch — we would love to hear from you.' }}</p><a class="shop-text-link" href="#contact">Find us in {{ $shop->location }} ↗</a></div>
 </section>
 <section class="shop-section shop-products" id="products">
-    <div class="section-heading"><div><p class="eyebrow">CURATED BY YOUR LOCAL SHOP</p><h2>Find something good.</h2></div><form class="search" method="get"><input name="q" value="{{ $search }}" placeholder="Search products or barcode" aria-label="Search products"><button aria-label="Search">↗</button></form></div>
+    <div class="section-heading"><div><p class="eyebrow">FEATURED PRODUCTS</p><h2>Start with these finds.</h2></div><a class="button secondary" href="{{ route('shops.products', $shop->slug) }}">View all products ↗</a></div>
     <div class="product-grid">
         @forelse($products as $product)
-            @php($price = $productPrices[$product->id])
-            <article class="product-card">
-                <div class="product-image">@if($product->image)<img src="{{ Storage::disk('public')->url(Str::start($product->image, 'products/')) }}" alt="{{ $product->name }}" loading="lazy">@else<span aria-hidden="true">✦</span>@endif</div>
-                <div class="product-body">
-                    <div class="product-meta">{{ $product->category?->name }}@if($product->category && $product->brand) · @endif{{ $product->brand?->name }}</div>
-                    <h3>{{ $product->name }}</h3>
-                    @if($isPreview && $product->visibility === 'draft')<span class="product-status">Draft</span>@endif
-                    <p class="preserve-lines">{{ $product->description }}</p>
-                    <div class="product-price"><strong>{{ $shop->currency }} {{ number_format($price['final'] / 100, 2) }}</strong>@if($price['final'] < (int) round((float) $product->selling_price * 100))<span><s>{{ $shop->currency }} {{ number_format((float) $product->selling_price, 2) }}</s>@if($price['discount_name']) &middot; {{ $price['discount_name'] }}@endif</span>@endif<span>{{ $product->quantity === null ? 'Available' : ($product->quantity > 0 ? $product->quantity.' in stock' : 'Sold out') }}</span></div>
-                    @if(! $isPreview && $product->quantity !== 0)
-                        <form class="add-cart-form" method="post" action="{{ route('cart.add', $shop->slug) }}" data-cart-form>
-                            @csrf
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
-                            <label class="quantity-label">Quantity<input type="number" name="quantity" value="1" min="1" max="{{ min($product->quantity ?? 10000, 10000) }}" aria-label="Quantity for {{ $product->name }}"></label>
-                            <button class="button small add-cart-button" type="submit" data-default-label="Add to cart">Add to cart</button>
-                        </form>
-                    @endif
-                </div>
-            </article>
+            @include('storefront.partials.product-card', ['product' => $product, 'productPrices' => $productPrices])
         @empty
             <div class="empty-state"><h3>No products to show yet.</h3><p>Check back soon for more good things.</p></div>
         @endforelse
     </div>
-    {{ $products->links() }}
 </section>
 <section class="shop-contact" id="contact">
     <div><p class="eyebrow">LET’S TALK</p><h2>Good things start<br>with a hello.</h2><p>Questions about a product, collection, or delivery? Contact the shop directly.</p></div>

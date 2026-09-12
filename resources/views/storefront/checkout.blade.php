@@ -3,7 +3,7 @@
 @section('shop-header')
 <header class="shop-nav">
     <a class="shop-wordmark" href="{{ route('shops.show', $shop->slug) }}">@if($shop->logo)<img src="{{ Storage::disk('public')->url(Str::start($shop->logo, 'shops/')) }}" alt="{{ $shop->name }} logo">@else<span class="shop-monogram" aria-hidden="true">{{ Str::upper(Str::substr($shop->name, 0, 1)) }}</span>@endif</a>
-    <nav aria-label="Shop navigation"><a href="{{ route('cart.show', $shop->slug) }}">Cart</a><a href="{{ route('shops.show', $shop->slug) }}#products">Products</a><a href="{{ route('shops.show', $shop->slug) }}#contact">Contact</a></nav>
+    <nav aria-label="Shop navigation"><a href="{{ route('cart.show', $shop->slug) }}">Cart</a><a href="{{ route('shops.products', $shop->slug) }}">Products</a><a href="{{ route('shops.show', $shop->slug) }}#contact">Contact</a></nav>
     <a class="shop-platform-link" href="{{ route('home') }}">on storex. ↗</a>
 </header>
 @endsection

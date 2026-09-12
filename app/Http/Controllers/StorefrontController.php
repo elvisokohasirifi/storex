@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Brand;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\Shop;
 use App\Services\SalesService;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -128,25 +131,67 @@ class StorefrontController extends Controller
 
     public function show(Request $request, Shop $shop, SalesService $sales): Response
     {
-        $isAdminPreview = (bool) backpack_user()?->is_platform_admin;
-        $isOwnerPreview = ! $isAdminPreview && backpack_user()?->id === $shop->owner_id;
-        $isPreview = $isAdminPreview || $isOwnerPreview;
+        [$isAdminPreview, $isOwnerPreview, $isPreview] = $this->previewState($shop);
         abort_unless($shop->status === 'approved' || $isPreview, 404);
-        $search = mb_substr((string) $request->query('q', ''), 0, 100);
-        $products = $shop->products()->with(['category', 'brand'])->when(! $isPreview, fn ($query) => $query->where('visibility', 'published'))->when($search, fn ($query) => $query->where(fn ($query) => $query
-            ->where('name', 'like', '%'.$search.'%')->orWhere('barcode', $search)))->orderBy('name')->paginate(24)->withQueryString();
+
+        $products = $this->visibleProducts($shop, $isPreview)->limit(6)->get();
         $discounts = $sales->activeDiscounts($shop);
-        $productPrices = $products->getCollection()->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
+        $productPrices = $products->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
+        [$cartProducts, $cartProductPrices, $cart, $cartTotals] = $isPreview ? [collect(), collect(), [], ['subtotal' => 0, 'discount' => 0, 'total' => 0]] : $this->cartDetails($request, $shop, $sales);
+        $contacts = $this->contacts($shop);
+
+        return response()->view('storefront.shop', compact('shop', 'products', 'productPrices', 'isAdminPreview', 'isOwnerPreview', 'isPreview', 'contacts', 'cartProducts', 'cartProductPrices', 'cart', 'cartTotals'))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function products(Request $request, Shop $shop, SalesService $sales): Response
+    {
+        [$isAdminPreview, $isOwnerPreview, $isPreview] = $this->previewState($shop);
+        abort_unless($shop->status === 'approved' || $isPreview, 404);
+
+        $productVisibility = fn ($query) => $query->when(! $isPreview, fn ($query) => $query->where('visibility', 'published'));
+        $categories = ProductCategory::whereBelongsTo($shop)
+            ->whereHas('products', $productVisibility)
+            ->withCount(['products' => $productVisibility])
+            ->orderBy('name')
+            ->get();
+        $brands = Brand::whereBelongsTo($shop)
+            ->whereHas('products', $productVisibility)
+            ->withCount(['products' => $productVisibility])
+            ->orderBy('name')
+            ->get();
+        $products = $this->visibleProducts($shop, $isPreview)->get();
+        $discounts = $sales->activeDiscounts($shop);
+        $productPrices = $products->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
         [$cartProducts, $cartProductPrices, $cart, $cartTotals] = $isPreview ? [collect(), collect(), [], ['subtotal' => 0, 'discount' => 0, 'total' => 0]] : $this->cartDetails($request, $shop, $sales);
 
-        $contacts = collect(preg_split('/[\r\n,;]+/', $shop->contacts ?? '') ?: [])->map(function (string $contact): array {
+        return response()->view('storefront.products', compact('shop', 'products', 'productPrices', 'categories', 'brands', 'isAdminPreview', 'isOwnerPreview', 'isPreview', 'cartProducts', 'cartProductPrices', 'cart', 'cartTotals'))
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    /** @return array{0: bool, 1: bool, 2: bool} */
+    private function previewState(Shop $shop): array
+    {
+        $isAdminPreview = (bool) backpack_user()?->is_platform_admin;
+        $isOwnerPreview = ! $isAdminPreview && backpack_user()?->id === $shop->owner_id;
+
+        return [$isAdminPreview, $isOwnerPreview, $isAdminPreview || $isOwnerPreview];
+    }
+
+    private function visibleProducts(Shop $shop, bool $isPreview): HasMany
+    {
+        return $shop->products()->with(['category', 'brand'])
+            ->when(! $isPreview, fn ($query) => $query->where('visibility', 'published'))
+            ->orderBy('name');
+    }
+
+    private function contacts(Shop $shop): Collection
+    {
+        return collect(preg_split('/[\r\n,;]+/', $shop->contacts ?? '') ?: [])->map(function (string $contact): array {
             $label = trim($contact);
             $phone = preg_replace('/[\s().-]+/', '', $label);
 
             return ['label' => $label, 'phone' => preg_match('/^\+?[0-9]{7,15}$/', $phone) ? $phone : null];
         })->filter(fn (array $contact) => $contact['label'] !== '');
-
-        return response()->view('storefront.shop', compact('shop', 'products', 'productPrices', 'search', 'isAdminPreview', 'isOwnerPreview', 'isPreview', 'contacts', 'cartProducts', 'cartProductPrices', 'cart', 'cartTotals'))
-            ->header('Cache-Control', 'private, no-store');
     }
 }

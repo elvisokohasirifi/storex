@@ -63,6 +63,8 @@ test('storefront checkout creates manual cash and momo orders when paystack is n
     $response = $this->get(route('checkout.callback', ['reference' => $order->reference]))->assertOk()->assertSee('Your order is reserved');
     if ($paymentMethod === 'momo') {
         $response->assertSee('Corner Shop Wallet')->assertSee('+233241234567');
+        expect($response->getContent())->toMatch('/use reference [A-Z0-9]{7}\./')
+            ->not->toContain('use reference '.$order->reference.'.');
     } else {
         $response->assertSee('Pay with cash');
     }
@@ -81,9 +83,12 @@ test('shop staff can confirm pending manual payments and update stock', function
     $order = Order::firstOrFail();
     $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 5]);
 
-    $this->actingAs($shop->owner, 'backpack')->get(route('workspace.operations', $shop))
+    $this->actingAs($shop->owner, 'backpack')->get(route('order.index'))
         ->assertOk()
-        ->assertSee('Manual payments')
+        ->assertSee('Sales (1)')
+        ->assertSee('Pending manual payments')
+        ->assertSee('Manual payments awaiting confirmation')
+        ->assertSee('1 pending')
         ->assertSee($order->reference)
         ->assertSee(route('workspace.sale.confirm-manual', [$shop, $order]), false);
     $this->post(route('workspace.sale.confirm-manual', [$shop, $order]))->assertRedirect()->assertSessionHasNoErrors();

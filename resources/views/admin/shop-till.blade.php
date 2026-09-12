@@ -124,16 +124,30 @@
             row.dataset.price = product.dataset.productPrice;
             row.innerHTML = `
                 <div class="d-flex justify-content-between gap-2">
-                    <strong class="small"></strong>
+                    <strong class="fs-5 fw-semibold lh-sm"></strong>
                     <button class="btn btn-sm btn-link text-danger p-0" type="button" data-cart-remove>Remove</button>
                 </div>
                 <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
-                    <input class="form-control form-control-sm" style="max-width: 90px" type="number" min="1" max="${stock ?? 10000}" data-cart-line-quantity aria-label="Cart quantity">
+                    <div class="input-group input-group-sm" style="max-width: 150px">
+                        <button class="btn btn-outline-secondary" type="button" data-cart-decrement aria-label="Reduce quantity">−</button>
+                        <input class="form-control text-center" type="number" min="1" max="${stock ?? 10000}" data-cart-line-quantity aria-label="Cart quantity">
+                        <button class="btn btn-outline-secondary" type="button" data-cart-increment aria-label="Increase quantity">+</button>
+                    </div>
                     <span class="fw-semibold" data-cart-line-total></span>
                 </div>`;
             row.querySelector('strong').textContent = product.dataset.productName;
             row.querySelector('[data-cart-remove]').addEventListener('click', () => {
                 source.value = '0';
+                render();
+            });
+            row.querySelector('[data-cart-decrement]').addEventListener('click', () => {
+                const value = (parseInt(source.value || '0', 10) || 0) - 1;
+                source.value = String(Math.max(0, value));
+                render();
+            });
+            row.querySelector('[data-cart-increment]').addEventListener('click', () => {
+                const value = (parseInt(source.value || '0', 10) || 0) + 1;
+                source.value = String(stock === null ? value : Math.min(stock, value));
                 render();
             });
             row.querySelector('[data-cart-line-quantity]').addEventListener('input', (event) => {

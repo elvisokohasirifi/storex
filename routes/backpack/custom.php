@@ -47,6 +47,7 @@ Route::group([
     Route::post('workspace/{shop}/sale', [ShopWorkspaceController::class, 'sale'])->name('workspace.sale');
     Route::post('products/{product}/duplicate', [ShopWorkspaceController::class, 'duplicate'])->name('workspace.duplicate');
     Route::get('receipts/{order}', [ShopWorkspaceController::class, 'receipt'])->name('workspace.receipt');
+    Route::get('receipts/{order}/pdf', [ShopWorkspaceController::class, 'receiptPdf'])->name('workspace.receipt.pdf');
     Route::get('moderation', [ModerationController::class, 'index'])->name('moderation.index');
     Route::post('moderation', [ModerationController::class, 'store'])->name('moderation.store');
     Route::crud('ledger-entry', 'LedgerEntryCrudController');

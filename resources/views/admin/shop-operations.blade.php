@@ -91,9 +91,6 @@
     <div class="col-lg-6"><div class="card h-100"><div class="card-header"><h3 class="card-title mb-0">Purchase orders</h3></div><div class="card-body table-responsive">
         <table class="table table-hover align-middle"><thead><tr><th>Reference</th><th>Supplier</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>@forelse($purchaseOrders as $purchaseOrder)<tr><td>{{ $purchaseOrder->reference }}</td><td>{{ $purchaseOrder->supplier?->name ?: '—' }}</td><td>{{ ucfirst($purchaseOrder->status) }}</td><td>{{ $shop->currency }} {{ number_format($purchaseOrder->total_cost / 100, 2) }}</td><td>@if($shop->enable_inventory_management && $purchaseOrder->status !== 'received')<form method="post" action="{{ route('workspace.purchase-order.receive', [$shop, $purchaseOrder]) }}">@csrf<button class="btn btn-sm btn-success">Receive</button></form>@endif</td></tr>@empty<tr><td colspan="5">No purchase orders yet.</td></tr>@endforelse</tbody></table>
     </div></div></div>
-    <div class="col-lg-6"><div class="card h-100"><div class="card-header"><h3 class="card-title mb-0">Manual payments</h3></div><div class="card-body table-responsive">
-        <table class="table table-hover align-middle"><thead><tr><th>Reference</th><th>Customer</th><th>Method</th><th>Total</th><th></th></tr></thead><tbody>@forelse($pendingManualOrders as $order)<tr><td>{{ $order->reference }}</td><td>{{ $order->customer_name }}</td><td>{{ strtoupper($order->payment_method) }}</td><td>{{ $order->currency }} {{ number_format($order->total / 100, 2) }}</td><td><form method="post" action="{{ route('workspace.sale.confirm-manual', [$shop, $order]) }}">@csrf<button class="btn btn-sm btn-success">Confirm paid</button></form></td></tr>@empty<tr><td colspan="5">No cash or mobile money payments are waiting.</td></tr>@endforelse</tbody></table>
-    </div></div></div>
 </div>
 
 <div class="row g-4 mb-4">

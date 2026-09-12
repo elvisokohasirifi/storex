@@ -37,7 +37,6 @@
                         @endif
                     @endif
                 </div>
-                <button class="button" type="submit">Place order ↗</button>
             </div>
             <aside class="summary-card">
                 <h2>Order summary</h2>
@@ -48,6 +47,7 @@
                 <p><span>Subtotal</span><strong>{{ $shop->currency }} {{ number_format($totals['subtotal'] / 100, 2) }}</strong></p>
                 @if($totals['discount'] > 0)<p><span>Discount</span><strong>-{{ $shop->currency }} {{ number_format($totals['discount'] / 100, 2) }}</strong></p>@endif
                 <p class="summary-total"><span>Total</span><strong>{{ $shop->currency }} {{ number_format($totals['total'] / 100, 2) }}</strong></p>
+                <button class="button" type="submit">Place order ↗</button>
                 <p class="small-text">Stock is reserved for 15 minutes after you place the order.</p>
             </aside>
         </div>

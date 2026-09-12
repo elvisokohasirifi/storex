@@ -275,7 +275,7 @@ test('platform admins cannot access financial pages searches exports or receipts
     $this->actingAs($admin, 'backpack');
     foreach ([
         route('order.index'), route('order.show', $order),
-        route('order.showDetailsRow', $order), route('workspace.receipt', $order),
+        route('order.showDetailsRow', $order), route('workspace.receipt', $order), route('workspace.receipt.pdf', $order),
         route('ledger-entry.index'), route('ledger-entry.show', $entry),
         route('ledger-entry.showDetailsRow', $entry), route('ledger-entry.create'),
         route('ledger-entry.edit', $entry), route('finance.index'),

@@ -24,6 +24,11 @@ class Order extends Model
         return ['payment_secret' => 'encrypted', 'subtotal' => 'integer', 'discount_total' => 'integer', 'total' => 'integer', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'cancelled_at' => 'datetime', 'refunded_at' => 'datetime'];
     }
 
+    public function manualPaymentReference(): string
+    {
+        return strtoupper(substr(str_replace('-', '', $this->reference), 0, 7));
+    }
+
     /** @return BelongsTo<Customer, $this> */
     public function customer(): BelongsTo
     {

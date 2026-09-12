@@ -47,7 +47,9 @@ test('till shows shop products and records a sale on its own page', function () 
     $this->actingAs($shop->owner, 'backpack')->get(route('workspace.till', $shop))->assertOk()
         ->assertSee($product->name)->assertSee('GHS 6.75')->assertSee('Draft till item')->assertSee('Draft')
         ->assertSee('<table', false)->assertSee('<th>Product</th>', false)->assertSee('<th>Cart</th>', false)
-        ->assertSee('Add to cart')->assertSee('Cart')->assertSee('data-cart-total', false)->assertSee('Record cash sale');
+        ->assertSee('Add to cart')->assertSee('Cart')->assertSee('data-cart-total', false)
+        ->assertSee('class="fs-5 fw-semibold lh-sm"', false)->assertSee('data-cart-decrement', false)->assertSee('data-cart-increment', false)
+        ->assertSee('Record cash sale');
     $this->post(route('workspace.sale', $shop), ['customer_name' => 'Walk in', 'customer_email' => 'walkin@example.com', 'customer_phone' => '+233241234567', 'items' => [$product->id => 2]])->assertRedirect();
     $this->assertDatabaseHas('orders', ['shop_id' => $shop->id, 'status' => 'paid', 'total' => 1350]);
     $this->assertDatabaseHas('products', ['id' => $product->id, 'quantity' => 1]);
@@ -82,12 +84,19 @@ test('public storefront uses cart buttons while admin preview stays moderation o
     $this->get(route('shops.show', $shop->slug))->assertOk()
         ->assertSee('Add to cart')
         ->assertSee(route('cart.show', $shop->slug))
-        ->assertSee('cart-popover', false)
+        ->assertSee('data-cart-form', false)
+        ->assertSee('data-cart-count', false)
+        ->assertSee('data-cart-popover', false)
+        ->assertSee('/js/storefront-cart.js', false)
         ->assertSee('Your cart is waiting')
         ->assertDontSee('name="customer_name"', false)
         ->assertDontSee('action="'.route('checkout.store', $shop->slug).'"', false);
 
-    $this->post(route('cart.add', $shop->slug), ['product_id' => $product->id, 'quantity' => 2])->assertRedirect()->assertSessionHasNoErrors();
+    $cartResponse = $this->postJson(route('cart.add', $shop->slug), ['product_id' => $product->id, 'quantity' => 2])->assertOk()
+        ->assertJsonPath('message', 'Cartable bread added to cart.')
+        ->assertJsonPath('cart_count', 2)
+        ->assertJsonPath('cart_total', 'GHS 16.00');
+    expect($cartResponse->json('cart_popover'))->toContain('Cartable bread × 2');
     $this->get(route('cart.show', $shop->slug))->assertOk()
         ->assertSee('Your cart')
         ->assertSee('Cartable bread')
@@ -101,7 +110,8 @@ test('public storefront uses cart buttons while admin preview stays moderation o
         ->assertSee('Cartable bread × 3')
         ->assertSee('Pay with cash')
         ->assertSee('Email address <span>(optional)</span>', false)
-        ->assertSee('GHS 24.00');
+        ->assertSee('GHS 24.00')
+        ->assertSeeInOrder(['Order summary', 'Place order']);
 
     $admin = User::factory()->create(['is_platform_admin' => true]);
     $this->flushSession();
@@ -227,6 +237,7 @@ test('shop operations page manages suppliers purchase orders shifts variants tra
         ->assertSee('Product variant')
         ->assertSee('Transfer stock')
         ->assertSee('Bulk price update')
+        ->assertDontSee('Manual payments awaiting confirmation')
         ->assertSee(route('workspace.exports.products', $shop));
 
     $this->post(route('workspace.supplier', $shop), ['name' => 'Daily Bakery', 'phone' => '+233241234567'])->assertRedirect()->assertSessionHasNoErrors();

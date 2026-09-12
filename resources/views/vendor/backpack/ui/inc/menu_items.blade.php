@@ -6,7 +6,8 @@
 <x-backpack::menu-item title="Product categories" icon="la la-tags" :link="route('product-category.index')" />
 <x-backpack::menu-item title="Brands" icon="la la-certificate" :link="route('brand.index')" />
 <x-backpack::menu-item title="Discounts" icon="la la-percent" :link="route('shop-discount.index')" />
-<x-backpack::menu-item title="Sales" icon="la la-receipt" :link="route('order.index')" />
+@php($pendingManualSalesCount = backpack_user()->accessibleShops()->join('orders', 'orders.shop_id', '=', 'shops.id')->where('orders.channel', 'manual')->where('orders.status', 'pending')->count())
+<x-backpack::menu-item :title="'Sales'.($pendingManualSalesCount ? ' ('.$pendingManualSalesCount.')' : '')" icon="la la-receipt" :link="route('order.index')" />
 @endif
 @if(backpack_user()?->is_platform_admin)
 <x-backpack::menu-item title="Approvals & moderation" icon="la la-check-circle" :link="route('moderation.index')" />

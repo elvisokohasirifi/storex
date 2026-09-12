@@ -93,7 +93,7 @@ class CheckoutController extends Controller
                 $message = 'Your payment is not confirmed yet. Refresh this page to check again.';
             }
         } elseif ($order->payment_method === 'momo') {
-            $message = 'Your order is reserved. Send mobile money to '.$order->shop->momo_account_name.' on '.$order->shop->momo_number.' and use reference '.$order->reference.'.';
+            $message = 'Your order is reserved. Send mobile money to '.$order->shop->momo_account_name.' on '.$order->shop->momo_number.' and use reference '.$order->manualPaymentReference().'.';
         } else {
             $message = 'Your order is reserved. Pay with cash when you collect or receive your items.';
         }

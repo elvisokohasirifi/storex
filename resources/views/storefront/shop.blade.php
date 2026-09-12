@@ -7,21 +7,12 @@
     </a>
     <nav aria-label="Shop navigation"><a href="#products">Products</a><a href="#about">About</a><a href="#contact">Contact</a></nav>
     @unless($isPreview)
-        <div class="shop-cart">
+        <div class="shop-cart" data-cart-root>
             <a class="cart-trigger" href="{{ route('cart.show', $shop->slug) }}" aria-label="View cart">
-                <span aria-hidden="true">&#128722;</span><strong>Cart</strong><em>{{ array_sum($cart) }}</em>
+                <span aria-hidden="true">&#128722;</span><strong>Cart</strong><em data-cart-count>{{ array_sum($cart) }}</em>
             </a>
-            <div class="cart-popover" role="status">
-                <h3>Your cart</h3>
-                @forelse($cartProducts as $cartProduct)
-                    <div class="cart-popover-item"><span>{{ $cartProduct->name }} × {{ $cart[$cartProduct->id] }}</span><strong>{{ $shop->currency }} {{ number_format(($cartProductPrices[$cartProduct->id]['final'] * $cart[$cartProduct->id]) / 100, 2) }}</strong></div>
-                @empty
-                    <p>Your cart is waiting for something good.</p>
-                @endforelse
-                @if($cartProducts->isNotEmpty())
-                    <div class="cart-popover-total"><span>Total</span><strong>{{ $shop->currency }} {{ number_format($cartTotals['total'] / 100, 2) }}</strong></div>
-                    <a class="button small" href="{{ route('cart.show', $shop->slug) }}">View cart ↗</a>
-                @endif
+            <div class="cart-popover" role="status" data-cart-popover>
+                @include('storefront.partials.cart-popover', ['productPrices' => $cartProductPrices, 'totals' => $cartTotals])
             </div>
         </div>
     @endunless
@@ -49,7 +40,7 @@
 @if($isOwnerPreview)
 <div class="shop-preview" role="status"><span><strong>Owner preview</strong> · Shop {{ ucfirst($shop->status) }} · Products visible · Checkout disabled in preview</span><a href="{{ route('workspace.show', $shop) }}">Back to shop overview ↗</a></div>
 @endif
-@if(session('success'))<div class="notice" role="status">{{ session('success') }}</div>@endif
+@if(session('success'))<div class="notice" role="status" data-cart-message>{{ session('success') }}</div>@else<div class="notice cart-message" role="status" data-cart-message hidden></div>@endif
 <section class="shop-hero">
     @if($shop->banner)<img class="shop-hero-banner" src="{{ Storage::disk('public')->url(Str::start($shop->banner, 'shops/')) }}" alt="{{ $shop->name }} banner">@else<div class="shop-hero-pattern" aria-hidden="true"><span>✦</span></div>@endif
     <div class="shop-hero-copy"><p class="eyebrow">LOCAL FINDS. EVERYDAY FAVOURITES.</p><h1>{{ $shop->name }}</h1><p class="shop-location">{{ $shop->location }}</p><div class="shop-hero-actions"><a class="button" href="#products">Explore products ↗</a><a href="#contact">Get in touch →</a></div></div>
@@ -72,11 +63,11 @@
                     <p class="preserve-lines">{{ $product->description }}</p>
                     <div class="product-price"><strong>{{ $shop->currency }} {{ number_format($price['final'] / 100, 2) }}</strong>@if($price['final'] < (int) round((float) $product->selling_price * 100))<span><s>{{ $shop->currency }} {{ number_format((float) $product->selling_price, 2) }}</s>@if($price['discount_name']) &middot; {{ $price['discount_name'] }}@endif</span>@endif<span>{{ $product->quantity === null ? 'Available' : ($product->quantity > 0 ? $product->quantity.' in stock' : 'Sold out') }}</span></div>
                     @if(! $isPreview && $product->quantity !== 0)
-                        <form class="add-cart-form" method="post" action="{{ route('cart.add', $shop->slug) }}">
+                        <form class="add-cart-form" method="post" action="{{ route('cart.add', $shop->slug) }}" data-cart-form>
                             @csrf
                             <input type="hidden" name="product_id" value="{{ $product->id }}">
                             <label class="quantity-label">Quantity<input type="number" name="quantity" value="1" min="1" max="{{ min($product->quantity ?? 10000, 10000) }}" aria-label="Quantity for {{ $product->name }}"></label>
-                            <button class="button small add-cart-button" type="submit">Add to cart</button>
+                            <button class="button small add-cart-button" type="submit" data-default-label="Add to cart">Add to cart</button>
                         </form>
                     @endif
                 </div>
@@ -96,3 +87,7 @@
     </dl>
 </section>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/storefront-cart.js') }}" defer></script>
+@endpush

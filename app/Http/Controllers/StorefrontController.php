@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Services\SalesService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -23,7 +24,7 @@ class StorefrontController extends Controller
         return view('storefront.index', compact('shops', 'search'));
     }
 
-    public function addToCart(Request $request, Shop $shop): RedirectResponse
+    public function addToCart(Request $request, Shop $shop, SalesService $sales): JsonResponse|RedirectResponse
     {
         abort_unless($shop->status === 'approved', 404);
         $data = $request->validate([
@@ -42,8 +43,20 @@ class StorefrontController extends Controller
         }
         $cart[$product->id] = $quantity;
         $this->putCart($request, $shop, $cart);
+        $message = $product->name.' added to cart.';
 
-        return back()->with('success', $product->name.' added to cart.');
+        if ($request->expectsJson()) {
+            [$cartProducts, $productPrices, $cart, $totals] = $this->cartDetails($request, $shop, $sales);
+
+            return response()->json([
+                'message' => $message,
+                'cart_count' => array_sum($cart),
+                'cart_total' => $shop->currency.' '.number_format($totals['total'] / 100, 2),
+                'cart_popover' => view('storefront.partials.cart-popover', compact('shop', 'cartProducts', 'productPrices', 'cart', 'totals'))->render(),
+            ]);
+        }
+
+        return back()->with('success', $message);
     }
 
     public function cartPage(Request $request, Shop $shop, SalesService $sales): Response

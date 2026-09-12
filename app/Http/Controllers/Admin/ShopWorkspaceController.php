@@ -13,8 +13,10 @@ use App\Models\Shop;
 use App\Models\StockBatch;
 use App\Models\User;
 use App\Services\SalesService;
+use App\Support\SalesReceiptPdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -94,7 +96,6 @@ class ShopWorkspaceController extends Controller
         $products = $shop->products()->orderBy('name')->get();
         $suppliers = $shop->suppliers()->orderBy('name')->get();
         $purchaseOrders = $shop->purchaseOrders()->with('supplier', 'items.product')->latest()->limit(20)->get();
-        $pendingManualOrders = $shop->orders()->with('items')->where('channel', 'manual')->where('status', 'pending')->latest()->limit(20)->get();
         $customers = $shop->customers()->withCount('orders')->orderBy('name')->limit(50)->get();
         $shifts = $shop->tillShifts()->with('user')->latest('opened_at')->limit(20)->get();
         $openShift = $shop->tillShifts()->where('user_id', backpack_user()->id)->where('status', 'open')->latest('opened_at')->first();
@@ -111,7 +112,7 @@ class ShopWorkspaceController extends Controller
         ];
         $canManage = true;
 
-        return view('admin.shop-operations', compact('shop', 'products', 'suppliers', 'purchaseOrders', 'pendingManualOrders', 'customers', 'shifts', 'openShift', 'transferShops', 'expiringBatches', 'summary', 'canManage'));
+        return view('admin.shop-operations', compact('shop', 'products', 'suppliers', 'purchaseOrders', 'customers', 'shifts', 'openShift', 'transferShops', 'expiringBatches', 'summary', 'canManage'));
     }
 
     public function variant(Request $request, string $shop): RedirectResponse
@@ -721,5 +722,17 @@ class ShopWorkspaceController extends Controller
         $this->shop($order->shop_id);
 
         return view('admin.receipt', ['order' => $order->load('items', 'shop')]);
+    }
+
+    public function receiptPdf(Order $order, SalesReceiptPdf $pdf): Response
+    {
+        abort_if(backpack_user()->is_platform_admin, 403);
+        $this->shop($order->shop_id);
+
+        return response($pdf->render($order), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="receipt-'.$order->reference.'.pdf"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 }

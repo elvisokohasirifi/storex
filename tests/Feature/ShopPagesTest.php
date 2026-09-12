@@ -79,6 +79,16 @@ test('product forms and till expose device barcode scanner controls', function (
         ->assertSee('/barcode-scanner.js', false);
 });
 
+test('storefront assets are versioned for production cache busting', function () {
+    $shop = Shop::factory()->approved()->create();
+    Product::factory()->for($shop)->approved()->create();
+
+    $this->get(route('shops.products', $shop->slug))->assertOk()
+        ->assertSee('/css/storefront.css?v=', false)
+        ->assertSee('/js/storefront-cart.js?v=', false)
+        ->assertSee('/js/storefront-products.js?v=', false);
+});
+
 test('public storefront uses cart buttons while admin preview stays moderation only', function () {
     $shop = Shop::factory()->approved()->create();
     $product = Product::factory()->for($shop)->approved()->create(['name' => 'Cartable bread', 'quantity' => 5, 'selling_price' => '8.00']);
@@ -89,7 +99,7 @@ test('public storefront uses cart buttons while admin preview stays moderation o
         ->assertSee('data-cart-form', false)
         ->assertSee('data-cart-count', false)
         ->assertSee('data-cart-popover', false)
-        ->assertSee('/js/storefront-cart.js', false)
+        ->assertSee('/js/storefront-cart.js?v=', false)
         ->assertSee('Your cart is waiting')
         ->assertDontSee('name="customer_name"', false)
         ->assertDontSee('action="'.route('checkout.store', $shop->slug).'"', false);
@@ -155,7 +165,7 @@ test('storefront homepage features six products and all products page supports c
 
     $this->get(route('shops.products', $shop->slug))->assertOk()
         ->assertSee('ALL PRODUCTS')
-        ->assertSee('/js/storefront-products.js', false)
+        ->assertSee('/js/storefront-products.js?v=', false)
         ->assertSee('data-product-browser', false)
         ->assertSee('data-product-search-input', false)
         ->assertSee('data-filter-type="category"', false)

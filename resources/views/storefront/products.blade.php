@@ -75,6 +75,6 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/storefront-cart.js') }}" defer></script>
-<script src="{{ asset('js/storefront-products.js') }}" defer></script>
+<script src="{{ asset('js/storefront-cart.js') }}?v={{ filemtime(public_path('js/storefront-cart.js')) }}" defer></script>
+<script src="{{ asset('js/storefront-products.js') }}?v={{ filemtime(public_path('js/storefront-products.js')) }}" defer></script>
 @endpush

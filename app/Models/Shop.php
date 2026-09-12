@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\LogsSafeActivity;
 use Backpack\CRUD\app\Models\Traits\CrudTrait;
 use Database\Factories\ShopFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
 class Shop extends Model
 {
     /** @use HasFactory<ShopFactory> */
-    use CrudTrait, HasFactory, HasUuids;
+    use CrudTrait, HasFactory, HasUuids, LogsSafeActivity;
 
     protected $fillable = ['name', 'slug', 'description', 'logo', 'banner', 'location', 'contacts', 'email', 'currency', 'enable_inventory_management', 'momo_number', 'momo_account_name'];
 

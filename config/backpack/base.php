@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckIfAdmin;
+use App\Http\Middleware\RestrictPlatformLogAccess;
 use Backpack\CRUD\app\Http\Middleware\AuthenticateSession;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
 
@@ -125,6 +126,7 @@ return [
         CheckIfAdmin::class,
         ConvertEmptyStringsToNull::class,
         AuthenticateSession::class,
+        RestrictPlatformLogAccess::class,
         // \Backpack\CRUD\app\Http\Middleware\UseBackpackAuthGuardInsteadOfDefaultAuthGuard::class,
     ],
 

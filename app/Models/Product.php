@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\LogsSafeActivity;
 use Backpack\CRUD\app\Models\Traits\CrudTrait;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use CrudTrait, HasFactory, HasUuids;
+    use CrudTrait, HasFactory, HasUuids, LogsSafeActivity;
 
     protected $fillable = ['shop_id', 'category_id', 'brand_id', 'name', 'description', 'image', 'cost_price', 'selling_price', 'sale_price', 'quantity', 'reorder_level', 'barcode', 'sku', 'visibility'];
 

@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogCrudController;
 use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\HelpController;
 use App\Http\Controllers\Admin\ModerationController;
 use App\Http\Controllers\Admin\ProductClassificationController;
 use App\Http\Controllers\Admin\ShopWorkspaceController;
@@ -53,6 +55,7 @@ Route::group([
     Route::crud('ledger-entry', 'LedgerEntryCrudController');
     Route::get('finance', [FinanceController::class, 'index'])->name('finance.index');
     Route::get('finance/receipts/{entry}', [FinanceController::class, 'receipt'])->name('finance.receipt');
+    Route::get('help', HelpController::class)->name('help');
     Route::get('security', [AuthController::class, 'security'])->name('account.security');
     Route::post('security', [AuthController::class, 'updateSecurity'])->middleware('throttle:5,1')->name('account.security.update');
     Route::get('/', [ShopWorkspaceController::class, 'index'])->name('backpack');
@@ -60,6 +63,9 @@ Route::group([
     Route::crud('product-category', 'ProductCategoryCrudController');
     Route::crud('brand', 'BrandCrudController');
     Route::crud('shop-discount', 'ShopDiscountCrudController');
+    Route::crud('activity-log', 'ActivityLogCrudController');
+    Route::get('activity-log/causer', [ActivityLogCrudController::class, 'getCauserOptions']);
+    Route::get('activity-log/subject', [ActivityLogCrudController::class, 'getSubjectOptions']);
     Route::post('product-classifications/category', [ProductClassificationController::class, 'category'])->name('product-classifications.category');
     Route::post('product-classifications/brand', [ProductClassificationController::class, 'brand'])->name('product-classifications.brand');
 });

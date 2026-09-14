@@ -9,6 +9,7 @@ use Backpack\CRUD\app\Http\Controllers\Auth\ResetPasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [StorefrontController::class, 'index'])->name('home');
+Route::get('/features', [StorefrontController::class, 'featuresPage'])->name('features');
 Route::get('/shops/{shop:slug}', [StorefrontController::class, 'show'])->name('shops.show');
 Route::get('/shops/{shop:slug}/products', [StorefrontController::class, 'products'])->name('shops.products');
 Route::post('/shops/{shop:slug}/cart', [StorefrontController::class, 'addToCart'])->middleware('throttle:60,1')->name('cart.add');

@@ -23,8 +23,16 @@ class StorefrontController extends Controller
         $search = mb_substr((string) $request->query('q', ''), 0, 100);
         $shops = Shop::where('status', 'approved')->when($search, fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
             ->withCount(['products' => fn ($query) => $query->where('visibility', 'published')])->orderBy('name')->paginate(12)->withQueryString();
+        $features = $this->features();
 
-        return view('storefront.index', compact('shops', 'search'));
+        return view('storefront.index', compact('shops', 'search', 'features'));
+    }
+
+    public function featuresPage(): View
+    {
+        $features = $this->features();
+
+        return view('storefront.features', compact('features'));
     }
 
     public function addToCart(Request $request, Shop $shop, SalesService $sales): JsonResponse|RedirectResponse
@@ -193,5 +201,52 @@ class StorefrontController extends Controller
 
             return ['label' => $label, 'phone' => preg_match('/^\+?[0-9]{7,15}$/', $phone) ? $phone : null];
         })->filter(fn (array $contact) => $contact['label'] !== '');
+    }
+
+    /** @return array<int, array{title: string, summary: string, points: array<int, string>}> */
+    private function features(): array
+    {
+        return [
+            [
+                'title' => 'Online storefronts',
+                'summary' => 'Give every approved shop a clean public page with its logo, banner, story, contact links, products, cart, and checkout.',
+                'points' => ['Unique shop slug', 'Product search and filters', 'Mobile-friendly cart and checkout'],
+            ],
+            [
+                'title' => 'Inventory and stock control',
+                'summary' => 'Track quantities from opening stock, sales, purchases, returns, damage, expiry, and manual stock adjustments.',
+                'points' => ['Low stock alerts', 'Stock movement history', 'Inventory valuation'],
+            ],
+            [
+                'title' => 'Point of sale',
+                'summary' => 'Cashiers can add products to a cart, scan barcodes, adjust quantities quickly, and generate receipts from the till.',
+                'points' => ['Barcode scanning', 'Cash and momo sales', 'PDF and WhatsApp receipt sharing'],
+            ],
+            [
+                'title' => 'Payments',
+                'summary' => 'Shops can connect Paystack, add mobile money details, or accept manual cash and momo payments when online payments are not configured.',
+                'points' => ['Paystack credentials', 'Manual payment approval', 'Short customer references'],
+            ],
+            [
+                'title' => 'Products, brands, and categories',
+                'summary' => 'Manage product details, photos, prices, sale prices, brands, categories, drafts, duplicates, and CSV bulk uploads.',
+                'points' => ['Bulk product setup', 'Draft and published products', 'Category and brand filters'],
+            ],
+            [
+                'title' => 'Finance and tax records',
+                'summary' => 'Shop users can record other income and expenses, upload receipts, filter records by date, and export finance data.',
+                'points' => ['Income and expense tracking', 'Receipt attachments', 'CSV exports'],
+            ],
+            [
+                'title' => 'Shop teams and roles',
+                'summary' => 'Shop owners can add admins and store managers while app admins keep moderation separate from shop finances.',
+                'points' => ['Shop admins and managers', 'Role-specific dashboards', 'Phone PIN, email, and Google login'],
+            ],
+            [
+                'title' => 'Moderation and logs',
+                'summary' => 'App admins review shops and products for quality, while activity and error logs support accountability and troubleshooting.',
+                'points' => ['Shop approval workflow', 'Activity logging', 'Error logging'],
+            ],
+        ];
     }
 }

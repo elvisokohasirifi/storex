@@ -5,9 +5,8 @@
 <div class="alert alert-info d-none" data-offline-warning>Connection looks offline. Keep this page open and record the sale once the device is back online.</div>
 @if($openShift)<div class="alert alert-success">Till shift open since {{ $openShift->opened_at->format('M j, g:i A') }}. <a href="{{ route('workspace.operations', $shop) }}">Close shift</a></div>@else<div class="alert alert-warning">No till shift is open. <a href="{{ route('workspace.operations', $shop) }}">Open a shift</a> before cashing up.</div>@endif
 <div class="card mb-4"><div class="card-header"><h3 class="card-title">Till / point of sale</h3></div><div class="card-body">
-<form method="get" class="d-flex flex-column flex-md-row gap-2 mb-3" data-barcode-pos data-barcode-target="q" data-submit-on-scan>
-    <input class="form-control" name="q" value="{{ $search }}" placeholder="Search product name or scan barcode" aria-label="Search products">
-    <button class="btn btn-outline-primary" type="submit">Search</button>
+<form method="get" class="d-flex flex-column flex-md-row gap-2 mb-3" data-pos-search-form data-barcode-pos data-barcode-target="q">
+    <input class="form-control" name="q" value="{{ $search }}" placeholder="Search product name or scan barcode" aria-label="Search products" autocomplete="off" data-pos-search-input>
     <button class="btn btn-outline-primary" type="button" data-barcode-scan><i class="la la-barcode" aria-hidden="true"></i> Scan barcode</button>
     <p class="small text-muted mb-0 align-self-md-center" data-barcode-status role="status" aria-live="polite"></p>
 </form>
@@ -27,9 +26,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($products as $product)
+                    @foreach($products as $product)
                         @php($price = $productPrices[$product->id])
-                        <tr @if($product->barcode) data-product-barcode="{{ $product->barcode }}" @endif data-pos-product data-product-id="{{ $product->id }}" data-product-name="{{ $product->name }}" data-product-price="{{ $price['final'] }}" data-product-stock="{{ $product->quantity ?? '' }}">
+                        <tr @if($product->barcode) data-product-barcode="{{ $product->barcode }}" @endif data-pos-product data-product-id="{{ $product->id }}" data-product-name="{{ $product->name }}" data-product-price="{{ $price['final'] }}" data-product-stock="{{ $product->quantity ?? '' }}" data-pos-product-search="{{ Str::lower($product->name.' '.$product->barcode.' '.$product->sku.' '.$product->description) }}">
                             <td><a href="{{ route('product.show', $product) }}">{{ $product->name }}</a></td>
                             <td>{{ $product->barcode ?: '—' }}</td>
                             <td>{{ ucfirst($product->visibility) }}</td>
@@ -42,13 +41,11 @@
                                 </td>
                             @endif
                         </tr>
-                    @empty
-                        <tr><td colspan="{{ $canSell ? 6 : 5 }}">No products match your search. Add products from the Products page.</td></tr>
-                    @endforelse
+                    @endforeach
+                    <tr class="{{ $products->isEmpty() ? '' : 'd-none' }}" data-pos-no-results><td colspan="{{ $canSell ? 6 : 5 }}">{{ $products->isEmpty() ? 'No products available. Add products from the Products page.' : 'No products match your search.' }}</td></tr>
                 </tbody>
             </table>
         </div>
-        <div class="mt-3">{{ $products->links() }}</div>
     </div>
     @if($canSell)
         <aside class="col-lg-4">
@@ -77,6 +74,25 @@
 @push('after_scripts')
 <script src="{{ asset('barcode-scanner.js') }}"></script>
 <script>
+(() => {
+    const searchForm = document.querySelector('[data-pos-search-form]');
+    const searchInput = searchForm?.querySelector('[data-pos-search-input]');
+    const searchRows = Array.from(document.querySelectorAll('[data-pos-product]'));
+    const noResults = document.querySelector('[data-pos-no-results]');
+    const filterRows = () => {
+        const query = (searchInput?.value || '').trim().toLowerCase();
+        let visibleRows = 0;
+        searchRows.forEach((row) => {
+            const matches = !query || (row.dataset.posProductSearch || '').includes(query);
+            row.classList.toggle('d-none', !matches);
+            if (matches) visibleRows += 1;
+        });
+        noResults?.classList.toggle('d-none', visibleRows > 0);
+    };
+    searchForm?.addEventListener('submit', (event) => event.preventDefault());
+    searchInput?.addEventListener('input', filterRows);
+    filterRows();
+})();
 (() => {
     const form = document.querySelector('[data-pos-form]');
     if (!form) return;

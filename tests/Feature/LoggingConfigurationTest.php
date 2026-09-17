@@ -5,7 +5,13 @@ use App\Models\Shop;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Activitylog\Models\Activity;
+
+test('activity log morph columns are uuid compatible strings', function () {
+    expect(Schema::getColumnType(config('activitylog.table_name'), 'subject_id'))->toBeIn(['char', 'string', 'varchar'])
+        ->and(Schema::getColumnType(config('activitylog.table_name'), 'causer_id'))->toBeIn(['char', 'string', 'varchar']);
+});
 
 test('safe shop and product changes are recorded in the activity log without payment credentials', function () {
     $admin = User::factory()->create(['is_platform_admin' => true]);
@@ -23,9 +29,11 @@ test('safe shop and product changes are recorded in the activity log without pay
         ->firstOrFail();
 
     expect($shopActivity->causer_id)->toBe($admin->id)
+        ->and($shopActivity->subject_id)->toBe($shop->id)
         ->and($shopActivity->log_name)->toBe('moderation')
         ->and($shopActivity->properties->toJson())->not->toContain('0248260286')
         ->and($shopActivity->properties->toJson())->not->toContain('Private Wallet')
+        ->and($productActivity->subject_id)->toBe($product->id)
         ->and($productActivity->event)->toBe('updated')
         ->and($productActivity->properties->toJson())->toContain('Updated Logged Product');
 });

@@ -49,6 +49,7 @@ test('till shows shop products and records a sale on its own page', function () 
     $this->actingAs($shop->owner, 'backpack')->get(route('workspace.till', $shop))->assertOk()
         ->assertSee($product->name)->assertSee('GHS 6.75')->assertSee('Draft till item')->assertSee('Draft')
         ->assertSee('<table', false)->assertSee('<th>Product</th>', false)->assertSee('<th>Cart</th>', false)
+        ->assertSee('data-pos-search-form', false)->assertSee('data-pos-search-input', false)->assertSee('data-pos-product-search', false)
         ->assertSee('Add to cart')->assertSee('Cart')->assertSee('data-cart-total', false)
         ->assertSee('class="fs-5 fw-semibold lh-sm"', false)->assertSee('data-cart-decrement', false)->assertSee('data-cart-increment', false)
         ->assertSee('Record cash sale');
@@ -72,7 +73,7 @@ test('product forms and till expose device barcode scanner controls', function (
 
     $this->get(route('workspace.till', $shop))->assertOk()
         ->assertSee('data-barcode-pos', false)
-        ->assertSee('data-submit-on-scan', false)
+        ->assertSee('data-pos-search-input', false)
         ->assertSee('data-product-barcode="1234567890123"', false)
         ->assertSee('data-sale-quantity', false)
         ->assertSee('data-cart-add', false)

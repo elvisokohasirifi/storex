@@ -412,11 +412,10 @@ class ShopWorkspaceController extends Controller
         $canSell = $shop->status === 'approved';
         $search = mb_substr((string) $request->query('q', ''), 0, 100);
         $products = $shop->products()
-            ->when($search, fn ($query) => $query->where(fn ($query) => $query->where('name', 'like', '%'.$search.'%')->orWhere('barcode', $search)))
-            ->orderBy('name')->paginate(30)->withQueryString();
+            ->orderBy('name')->get();
         $openShift = $shop->tillShifts()->where('user_id', backpack_user()->id)->where('status', 'open')->latest('opened_at')->first();
         $discounts = $sales->activeDiscounts($shop);
-        $productPrices = $products->getCollection()->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
+        $productPrices = $products->mapWithKeys(fn ($product) => [$product->id => $sales->priceFor($product, $discounts)]);
 
         return view('admin.shop-till', compact('shop', 'canManage', 'canSell', 'search', 'products', 'productPrices', 'openShift'));
     }

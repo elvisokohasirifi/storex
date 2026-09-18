@@ -70,6 +70,7 @@ class HelpController extends Controller
             $context['canManageShop'] ? $this->inventorySection() : null,
             $context['canManageShop'] ? $this->operationsSection() : null,
             $this->salesSection(),
+            $context['canManageShop'] ? $this->dataQuestionsSection() : null,
             $context['canManageShop'] ? $this->discountsSection() : null,
             $context['canManageShop'] ? $this->teamAndPaymentsSection() : null,
             $this->financeSection(),
@@ -222,6 +223,19 @@ class HelpController extends Controller
                 ['title' => 'Storewide discounts', 'body' => 'Apply a discount to all eligible products in a shop during the configured period.'],
                 ['title' => 'Category and brand discounts', 'body' => 'Limit a discount to products in chosen categories or brands. This works best when products are consistently classified.'],
                 ['title' => 'Checkout discounts', 'body' => 'Use checkout-level discounts when the discount should apply to the order total rather than individual product prices.'],
+            ],
+        ];
+    }
+
+    private function dataQuestionsSection(): array
+    {
+        return [
+            'title' => 'Ask data',
+            'summary' => 'Ask plain-English questions about shop sales data and keep previous answers.',
+            'items' => [
+                ['title' => 'Plain-English questions', 'body' => 'Use Ask data from the shop workspace to ask about sales totals, order counts, top products, top salespeople, and monthly staff comparisons.'],
+                ['title' => 'Charts and comparisons', 'body' => 'Ask for a bar chart to compare staff monthly sales for a year, for example “Generate a bar chart comparing Ama Seller and Kojo Seller monthly sales for 2026.”'],
+                ['title' => 'Saved history', 'body' => 'Every answered question is saved for the shop. Open saved questions later to review the answer or delete saved questions you no longer need.'],
             ],
         ];
     }

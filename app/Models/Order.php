@@ -47,6 +47,12 @@ class Order extends Model
         return $this->belongsTo(Shop::class);
     }
 
+    /** @return BelongsTo<User, $this> */
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
+
     /** @return HasMany<OrderItem, $this> */
     public function items(): HasMany
     {

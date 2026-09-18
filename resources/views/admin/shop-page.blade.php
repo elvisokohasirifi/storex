@@ -25,6 +25,7 @@
     @if($canManage)
         <a class="btn {{ request()->routeIs('workspace.operations') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.operations', $shop) }}">Operations</a>
         <a class="btn {{ request()->routeIs('shop-discount.*') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('shop-discount.index', ['shop_id' => $shop->id]) }}">Discounts</a>
+        <a class="btn {{ request()->routeIs('workspace.ask-data') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.ask-data', $shop) }}">Ask data</a>
     @endif
     <a class="btn {{ request()->routeIs('workspace.till') ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('workspace.till', $shop) }}">Till / point of sale</a>
     @if($canManage)

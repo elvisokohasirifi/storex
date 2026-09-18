@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActivityLogCrudController;
+use App\Http\Controllers\Admin\DataQuestionController;
 use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\HelpController;
 use App\Http\Controllers\Admin\ModerationController;
@@ -35,6 +36,9 @@ Route::group([
     Route::post('workspace/{shop}/bulk-prices', [ShopWorkspaceController::class, 'bulkPrices'])->name('workspace.bulk-prices');
     Route::get('workspace/{shop}/payments', [ShopWorkspaceController::class, 'payments'])->name('workspace.payments');
     Route::get('workspace/{shop}/users', [ShopWorkspaceController::class, 'users'])->name('workspace.users');
+    Route::get('workspace/{shop}/ask-data', [DataQuestionController::class, 'index'])->name('workspace.ask-data');
+    Route::post('workspace/{shop}/ask-data', [DataQuestionController::class, 'store'])->name('workspace.ask-data.store');
+    Route::delete('workspace/{shop}/ask-data/{dataQuestion}', [DataQuestionController::class, 'destroy'])->name('workspace.ask-data.destroy');
     Route::get('workspace/{shop}/till', [ShopWorkspaceController::class, 'till'])->name('workspace.till');
     Route::get('workspace/{shop}/inventory', [ShopWorkspaceController::class, 'inventory'])->name('workspace.inventory');
     Route::get('workspace/{shop}/inventory/{product}', [ShopWorkspaceController::class, 'stock'])->name('workspace.stock');

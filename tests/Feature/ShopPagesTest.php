@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Brand;
+use App\Models\DataQuestion;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
@@ -28,6 +29,7 @@ test('shop overview separates forms and reports completed sales by currency', fu
         ->assertDontSee('Shop details')->assertDontSee('Our story')
         ->assertSee(route('shops.show', $shop->slug))->assertSee(route('workspace.payments', $shop))
         ->assertSee(route('workspace.users', $shop))->assertSee(route('workspace.till', $shop))
+        ->assertSee(route('workspace.ask-data', $shop))
         ->assertSee(route('shop-discount.index', ['shop_id' => $shop->id]))
         ->assertDontSee('name="public_key"', false)->assertDontSee('name="csv"', false)
         ->assertDontSee('name="items[', false)->assertDontSee('name="password"', false);
@@ -39,6 +41,113 @@ test('payment and user forms are on their dedicated pages and never reveal saved
         ->assertSee('name="public_key"', false)->assertSee('name="secret_key"', false)
         ->assertDontSee('pk_test_saved123')->assertDontSee('sk_test_saved123');
     $this->get(route('workspace.users', $shop))->assertOk()->assertSee('Add or update shop user')->assertSee($shop->owner->name);
+});
+
+test('shop admins can ask plain english questions about their sales data', function () {
+    $shop = Shop::factory()->approved()->create();
+    $topSeller = User::factory()->create(['name' => 'Ama Seller']);
+    $otherSeller = User::factory()->create(['name' => 'Kojo Seller']);
+    $outsideSeller = User::factory()->create(['name' => 'Outside Seller']);
+
+    Order::factory()->for($shop)->create(['seller_id' => $topSeller->id, 'status' => 'paid', 'total' => 12000, 'paid_at' => '2026-05-01 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $otherSeller->id, 'status' => 'paid', 'total' => 5000, 'paid_at' => '2026-05-02 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $otherSeller->id, 'status' => 'pending', 'total' => 500000, 'paid_at' => null]);
+    Order::factory()->create(['seller_id' => $outsideSeller->id, 'status' => 'paid', 'total' => 900000, 'paid_at' => '2026-05-03 10:00:00']);
+
+    $this->actingAs($shop->owner, 'backpack')
+        ->post(route('workspace.ask-data.store', $shop), ['question' => 'Which sales person sold the most in 2026?'])
+        ->assertRedirect();
+    $savedQuestion = DataQuestion::where('shop_id', $shop->id)->firstOrFail();
+
+    $this->get(route('workspace.ask-data', ['shop' => $shop->id, 'question_id' => $savedQuestion->id]))
+        ->assertOk()
+        ->assertSee('Top salespeople for 2026')
+        ->assertSee('Ama Seller sold the most with GHS 120.00')
+        ->assertSee('Kojo Seller')
+        ->assertDontSee('Outside Seller');
+
+    $this->assertDatabaseHas('data_questions', ['id' => $savedQuestion->id, 'shop_id' => $shop->id, 'user_id' => $shop->owner_id, 'question' => 'Which sales person sold the most in 2026?']);
+});
+
+test('shop admins can generate saved monthly comparison charts and delete them', function () {
+    $shop = Shop::factory()->approved()->create();
+    $ama = User::factory()->create(['name' => 'Ama Seller']);
+    $kojo = User::factory()->create(['name' => 'Kojo Seller']);
+
+    Order::factory()->for($shop)->create(['seller_id' => $ama->id, 'status' => 'paid', 'total' => 10000, 'paid_at' => '2026-01-15 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $ama->id, 'status' => 'paid', 'total' => 15000, 'paid_at' => '2026-02-15 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $kojo->id, 'status' => 'paid', 'total' => 8000, 'paid_at' => '2026-01-16 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $kojo->id, 'status' => 'paid', 'total' => 20000, 'paid_at' => '2026-02-16 10:00:00']);
+    Order::factory()->for($shop)->create(['seller_id' => $kojo->id, 'status' => 'pending', 'total' => 900000, 'paid_at' => null]);
+
+    $this->actingAs($shop->owner, 'backpack')
+        ->post(route('workspace.ask-data.store', $shop), ['question' => 'Generate a bar chart comparing Ama Seller and Kojo Seller monthly sales for the year 2026.'])
+        ->assertRedirect();
+    $savedQuestion = DataQuestion::where('shop_id', $shop->id)->firstOrFail();
+
+    $this->get(route('workspace.ask-data', ['shop' => $shop->id, 'question_id' => $savedQuestion->id]))
+        ->assertOk()
+        ->assertSee('Monthly staff sales comparison for 2026')
+        ->assertSee('Comparing monthly paid sales for Ama Seller and Kojo Seller.')
+        ->assertSee('Jan')
+        ->assertSee('GHS 100.00')
+        ->assertSee('GHS 80.00')
+        ->assertSee('GHS 150.00')
+        ->assertSee('GHS 200.00')
+        ->assertSee('Delete');
+
+    $this->delete(route('workspace.ask-data.destroy', ['shop' => $shop->id, 'dataQuestion' => $savedQuestion->id]))
+        ->assertRedirect(route('workspace.ask-data', $shop));
+    $this->assertDatabaseMissing('data_questions', ['id' => $savedQuestion->id]);
+});
+
+test('shop admins can ask for a specific number of best selling products', function () {
+    $shop = Shop::factory()->approved()->create();
+    $order = Order::factory()->for($shop)->create(['status' => 'paid', 'total' => 55000, 'paid_at' => '2026-03-01 10:00:00']);
+
+    foreach (range(1, 11) as $index) {
+        $product = Product::factory()->for($shop)->create(['name' => 'Ranked Product '.$index]);
+        $order->items()->create([
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'quantity' => 12 - $index,
+            'unit_price' => 1000,
+            'unit_cost' => 500,
+            'tracks_stock' => false,
+        ]);
+    }
+
+    $this->actingAs($shop->owner, 'backpack')
+        ->post(route('workspace.ask-data.store', $shop), ['question' => 'List my best selling 10 products in 2026'])
+        ->assertRedirect();
+    $savedQuestion = DataQuestion::where('shop_id', $shop->id)->firstOrFail();
+
+    $this->get(route('workspace.ask-data', ['shop' => $shop->id, 'question_id' => $savedQuestion->id]))
+        ->assertOk()
+        ->assertSee('Top products for 2026')
+        ->assertSee('Ranked Product 1')
+        ->assertSee('Ranked Product 10')
+        ->assertDontSee('Ranked Product 11');
+});
+
+test('data questions are hidden from platform admins and store managers', function () {
+    $platformAdmin = User::factory()->create(['is_platform_admin' => true]);
+    $manager = User::factory()->create(['is_platform_admin' => false]);
+    $shop = Shop::factory()->approved()->create();
+    $otherQuestion = DataQuestion::factory()->create();
+    $shop->members()->create(['user_id' => $manager->id, 'role' => 'manager']);
+
+    $this->actingAs($platformAdmin, 'backpack')
+        ->get(route('workspace.ask-data', $shop))
+        ->assertForbidden();
+
+    $this->actingAs($manager, 'backpack')
+        ->get(route('workspace.ask-data', $shop))
+        ->assertForbidden();
+
+    $this->actingAs($shop->owner, 'backpack')
+        ->delete(route('workspace.ask-data.destroy', ['shop' => $shop->id, 'dataQuestion' => $otherQuestion->id]))
+        ->assertNotFound();
 });
 
 test('till shows shop products and records a sale on its own page', function () {

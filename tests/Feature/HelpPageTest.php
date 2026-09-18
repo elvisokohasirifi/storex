@@ -26,6 +26,7 @@ test('shop admins see setup, finance, inventory, payment, and activity help', fu
         ->assertSee('Role: Shop admin')
         ->assertSee('Users and payment credentials')
         ->assertSee('Inventory management')
+        ->assertSee('Ask data')
         ->assertSee('Discounts')
         ->assertSee('Income, expenses, finance, and tax records')
         ->assertSee('Shop admins can see activity logs that relate to their own shops')
@@ -45,6 +46,7 @@ test('store managers see day to day help without admin-only setup guidance', fun
         ->assertSee('Till, sales, receipts, and manual payments')
         ->assertSee('Income, expenses, finance, and tax records')
         ->assertDontSee('Users and payment credentials')
+        ->assertDontSee('Ask data')
         ->assertDontSee('Inventory management page')
         ->assertDontSee('Shop admins can see activity logs that relate to their own shops')
         ->assertDontSee('Error logs');

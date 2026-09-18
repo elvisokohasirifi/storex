@@ -118,4 +118,10 @@ class Shop extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    /** @return HasMany<DataQuestion, $this> */
+    public function dataQuestions(): HasMany
+    {
+        return $this->hasMany(DataQuestion::class);
+    }
 }
